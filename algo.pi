@@ -1,0 +1,52 @@
+% convex_hull(Points) = convex_hull(Points).
+%   Ex: convex_hull([[0,0],[1,1],[2,2],[2,0],[2,4],[3,3],[0,3]]) = [0,0],[2,0],[3,3],[2,4],[0,3],[0,0]]
+% inside_convex_hull(Point, Points) => inside_convex_hull(Point, Points).
+%   Ex: inside_convex_hull([[0,0],[2,0],[3,3],[2,4],[0,3],[0,0]], [1,1]) => true
+
+% Computes the convex hull of a set of 2D points using the Monotone Chain algorithm.
+% Returns the hull as a list of points in counter-clockwise order.
+%
+convex_hull(Points@[_,_,_|_]) = Hull =>
+    Sorted = sort(Points),            % Sort points lexicographically (by x, then y)
+    build_half(Sorted, [], Lower),
+    build_half(reverse(Sorted), [], Upper),
+    Hull = reverse(tail(Lower)) ++ reverse(Upper).  % Concatenate lower and upper hulls, removing duplicate endpoints
+convex_hull(Points) = Points.
+
+% Build half of the hull
+build_half([], Acc, H) => H = Acc.
+build_half([P|Rest], [P1,P2|Acc], H),
+    cross(P2, P1, P) =< 0
+=>
+    build_half(Rest, [P,P2|Acc], H).
+build_half([P|Rest], Acc, H) =>
+    build_half(Rest, [P|Acc], H).
+
+% Cross product of vectors OA and OB
+cross(O, A, B) = (A[1]-O[1])*(B[2]-O[2]) - (A[2]-O[2])*(B[1]-O[1]).
+
+% true if P lies inside or on the boundary of Hull
+% 
+inside_convex_hull(P, [P1,P2|Points]) =>
+    cross(P1, P2, P) >= 0,
+    inside_convex_hull(P, [P2|Points]).
+inside_convex_hull(P, Points) => true.
+
+
+% Example usage
+main =>
+    Points = [[0,0],[1,1],[2,2],[2,0],[2,4],[3,3],[0,3]],
+    Hull = convex_hull(Points),
+    println("Convex hull: " = Hull),
+    (inside_convex_hull([1,1],Hull) ->
+        println($inside([1,1]))
+    ;
+        println($outside([1,1]))
+    ),
+    (inside_convex_hull([5,5],Hull) ->
+        println($inside([5,5]))
+    ;
+        println($outide([5,5]))
+    ).
+
+%https://github.com/TheAlgorithms/Python/blob/master/divide_and_conquer/convex_hull.py
