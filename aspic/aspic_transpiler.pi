@@ -105,10 +105,15 @@ translate_rules(T,Phase)=>
 foreach(L in T,L2 in allvariants(L))
 if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
 %d(orig=L),
-V=getvars(L2)
+println(stderr,"% "++L.to_string())
+,V=getvars(L2)
+%,d(v=V)
 ,varsdomaininit(L2,L2B,[],VI)
+%,d({l2b=L2B,vi=VI})
 ,L2C=adddomaintovars(VI,L2B)
+%,d(l2c=L2C)
 ,L2:=L2C
+,V:=getvars(L2)
 %,d(vi=VI)
 %,d(vars=V)
 ,println(stderr,"foreach(_ in 1..1)")

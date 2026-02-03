@@ -1,3 +1,4 @@
+% very fast ASP n-queens, personal communication Prof. Torsten Schaub
 #const n=4.
 { queen(I,1..n) } = 1 :- I = 1..n.
 { queen(1..n,J) } = 1 :- J = 1..n.
