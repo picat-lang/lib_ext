@@ -54,6 +54,9 @@ getsetvars(T)=R,functor(T,$set,_)=>T=..L,R=[Y:X in tail(L),Y in getvars(X)].remo
 replacevars(V,A,T)=R=>foreach(I in 1..V.len),S=..[$var|V[I]],T:=replace(T,S,A[I]),end,R=T. %,pp({v=V,a=A,t=T,r=R}).
 adddomaintovars(V,T)=R=>foreach(I in 1..V.len),V[I]=$var(X,D),T:=replace(T,$var(X,[]),V[I]),end,R=T.
 
+compactvars(VI,V)=R=>L=adddomaintovars(VI,[$var(K,P):X in V,X=[K,P]]).remove_dups()
+,R=[[K,P]:X in L,X=$var(K,P)].
+
 show(A)=X,A=$f(H,T)=>H2=H,X=..[H2|T].
 show(A)=X,atom(A)=>X=A.
 show(X)=X.
@@ -106,14 +109,14 @@ foreach(L in T,L2 in allvariants(L))
 if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
 %d(orig=L),
 println(stderr,"% "++L.to_string())
+,println(stderr,"d(\""++L.to_string()++"\"),")
 ,V=getvars(L2)
 %,d(v=V)
 ,varsdomaininit(L2,L2B,[],VI)
 %,d({l2b=L2B,vi=VI})
-,L2C=adddomaintovars(VI,L2B)
-%,d(l2c=L2C)
-,L2:=L2C
-,V:=getvars(L2)
+,V:=compactvars(VI,V)
+%,d(v=V)
+,L2:=adddomaintovars(VI,L2B)
 %,d(vi=VI)
 %,d(vars=V)
 ,println(stderr,"foreach(_ in 1..1)")
@@ -359,6 +362,7 @@ p(nv,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T))=>true.
 p(factor,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T))=>true.
 p(prod,S,R,T),p(factor,S,"*"++S2,T1)=>p(prod,S2,R,T2),T=aspic_mul(T1,T2).
 p(prod,S,R,T),p(factor,S,R,T)=>true.
+
 p(sum,S,R,T),p(prod,S,"+"++S2,T1)=>p(sum,S2,R,T2),T=aspic_sum(T1,T2).
 p(sum,S,R,T),p(prod,S,"-"++S2,T1)=>p(sum,S2,R,T2),T=aspic_diff(T1,T2).
 p(sum,S,R,T2),p(prod,S,R,T)=>T2=T.
