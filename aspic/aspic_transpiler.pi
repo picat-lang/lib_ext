@@ -108,9 +108,9 @@ translate_rules(T,Phase)=>
 foreach(L in T,L2 in allvariants(L))
 if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
 %d(orig=L),
-println(stderr,"% "++L.to_string())
-,println(stderr,"d(\""++L.to_string()++"\"),")
-,V=getvars(L2)
+%println(stderr,"% "++L.to_string())
+%println(stderr,"d(\""++L.to_string()++"\"),")
+V=getvars(L2)
 %,d(v=V)
 ,varsdomaininit(L2,L2B,[],VI)
 %,d({l2b=L2B,vi=VI})
@@ -119,10 +119,10 @@ println(stderr,"% "++L.to_string())
 ,L2:=adddomaintovars(VI,L2B)
 %,d(vi=VI)
 %,d(vars=V)
-,println(stderr,"foreach(_ in 1..1)")
+%,println(stderr,"foreach(_ in 1..1)")
 ,if(V=[]) then
 println(stderr,"aspic_holds("++replaceset(L2).to_string()++")")
-,println(stderr,"end,")
+,println(stderr,",")
 else
 foreach(V2 in V)
 println(stderr,"foreach("++V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2]))++")")
@@ -133,7 +133,7 @@ end
 ,foreach(V2 in V)
 println(stderr,"end")
 end
-,println(stderr,"end,")
+,println(stderr,",")
 end
 end
 end
