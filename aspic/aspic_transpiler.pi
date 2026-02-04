@@ -63,7 +63,7 @@ show(X)=X.
 
 replaceset(T)=R,functor(T,$set,_)
 =>V=getsetvars(T),T2=replacevars(V,[X[1]:X in V],T),T2=..[_|L]
-,R="["++ (aspic_conj(L)).to_string() ++ cond(V!=[],":" ++ join([X[1].to_string()++" in "++cond(X[2]=[],"universe()",showrange(X[2])):X in V],','),"") ++ "]".
+,R="["++ (aspic_conj(L)).aspic_simplify.to_string() ++ cond(V!=[],":" ++ join([X[1].to_string()++" in "++cond(X[2]=[],"universe()",showrange(X[2])):X in V],','),"") ++ "]".
 replaceset(T)=R,functor(T,_,0)=>R=T.
 replaceset(T)=R,T=..L=>R=..[replaceset(X):X in L].
 
@@ -97,6 +97,13 @@ varsdomaininit([],Y,C,D)=>Y=[],D=C.
 varsdomaininit([H|T],Y,C,D),varsdomaininit(H,H2,C,C2),varsdomaininit(T,T2,C2,C3)=>Y=[H2|T2],D=C3.
 varsdomaininit(T,Y,C,D),T=..L=>varsdomaininit(L,L2,C,D),Y=..L2.
 
+aspic_simplify([])=R=>R=[].
+aspic_simplify(X)=R,X=$aspic_impl(A,B)=>A2=A.aspic_simplify,B2=B.aspic_simplify,R=aspic_impl(A2,B2).
+aspic_simplify(X)=R,X=$aspic_conj(L)=>L2=L.map(aspic_simplify),R=aspic_conj(L2).
+aspic_simplify(X)=R,X=$aspic_disj(L)=>L2=L.map(aspic_simplify),R=aspic_disj(L2).
+aspic_simplify([H|T])=R=>R=[H|T].map(aspic_simplify).
+aspic_simplify(X)=R=>R=X.
+
 % aspic_render([])=R=>R=[].
 % aspic_render([H|T])=R=>H1=aspic_render(H),T1=aspic_render(T),R=[H1|T1].
 % aspic_render(F)=R,atom(F)=>R=F.to_string().
@@ -105,12 +112,12 @@ varsdomaininit(T,Y,C,D),T=..L=>varsdomaininit(L,L2,C,D),Y=..L2.
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 translate_rules(T,Phase)=>
-foreach(L in T,L2 in allvariants(L))
+foreach(L0 in T,L0=[L,Orig],L2 in allvariants(L))
 if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
-%d(orig=L),
-%println(stderr,"% "++L.to_string())
+d(orig=Orig)
+%println(stderr,"% "++Orig)
 %println(stderr,"d(\""++L.to_string()++"\"),")
-V=getvars(L2)
+,V=getvars(L2)
 %,d(v=V)
 ,varsdomaininit(L2,L2B,[],VI)
 %,d({l2b=L2B,vi=VI})
@@ -121,14 +128,14 @@ V=getvars(L2)
 %,d(vars=V)
 %,println(stderr,"foreach(_ in 1..1)")
 ,if(V=[]) then
-println(stderr,"aspic_holds("++replaceset(L2).to_string()++")")
+println(stderr,"aspic_holds("++replaceset(L2).aspic_simplify.to_string()++")")
 ,println(stderr,",")
 else
 foreach(V2 in V)
 println(stderr,"foreach("++V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2]))++")")
 end
 ,L3=replacevars(V,[X[1]:X in V],L2)
-,L4=replaceset(L3).to_string()
+,L4=replaceset(L3).aspic_simplify.to_string()
 ,println(stderr,"aspic_holds("++L4++"),")
 ,foreach(V2 in V)
 println(stderr,"end")
@@ -155,7 +162,7 @@ translate_completion(T)=>
 println(stderr,"aspic_stoplearning(),")
 ,println(stderr,"H=get_heap_map(aspic_atoms),\nforeach(ASPIC_ATOM in H.keys())\nif(not aspic_isfdvariable(ASPIC_ATOM))")
 ,println(stderr,"L=[]")
-,foreach(L in T,L2 in allvariants(L))
+,foreach(L0 in T,L0=[L,Orig],L2 in allvariants(L))
 %d(orig=L)
 ,V=getvars(L2)
 ,varsdomaininit(L2,L2B,[],VI)
@@ -167,9 +174,9 @@ println(stderr,"aspic_stoplearning(),")
 L2:=$aspic_impl(1,L2)
 end
 ,if(L2=$aspic_impl(B,H)) then
-println(stderr,"%completion "++L.to_string())
+%println(stderr,"%completion "++Orig)
 %d(l2=L2)
-,L2:=$aspic_impl($set(B),H)
+L2:=$aspic_impl($set(B),H)
 %,d(l2=L2)
 ,V:=getvars(L2)
 %,d(v=V)
@@ -191,7 +198,7 @@ println(stderr,"%completion "++L.to_string())
 %,d({h3=H3,c3=C3,b2=B2})
 ,L4:=aspic_disj([aspic_conj([B2]++C3)])
 %,d(l4=L4)
-,print(stderr,"++["++L4.to_string()++":_ in 1..1,ASPIC_ATOM=$"++H3.to_string())
+,print(stderr,"++["++L4.aspic_simplify.to_string()++":_ in 1..1,ASPIC_ATOM=$"++H3.to_string())
 ,foreach(V2 in V4)
 print(stderr,","++V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2])))
 end
@@ -303,10 +310,21 @@ aspic_diff(A,B)=R=>R=$aspic_diff(A,B).
 aspic_mul(A,B)=R,number(A),number(B)=>R=A*B.
 aspic_mul(A,B)=R=>R=$aspic_mul(A,B).
 
-aspic_conj([X])=R=>R=X.
-aspic_conj(L)=R=>R=$aspic_conj(L).
-aspic_disj([X])=R=>R=X.
-aspic_disj(L)=R=>R=$aspic_disj(L).
+aspic_member(V,[H|_]),V==H=>true.
+aspic_member(V,[_|T])=>aspic_member(V,T).
+
+aspic_conj0(X)=Y=>X2=[Y:Y in X,not(Y==1)],Y=cond(aspic_member(0,X2),0,cond(X2=[A],A,cond(X2==[],1,$aspic_conj(X2)))).
+aspic_conj(X)=Y=>Y=aspic_conj0(X),d(aspic_conj_called=X),d(aspic_conj_result=Y).
+aspic_disj(X)=Y=>X2=[Y:Y in X,not(Y==0)],Y=cond(aspic_member(1,X2),1,cond(X2=[A],A,cond(X2==[],0,$aspic_disj(X2)))).
+
+aspic_impl(A,B)=Y=>if(not(A==0))if(A==1)Y=B else Y=$impl(A,B) end else Y=1 end.
+
+
+
+%aspic_conj([X])=R=>R=X.
+%aspic_conj(L)=R=>R=$aspic_conj(L).
+%aspic_disj([X])=R=>R=X.
+%aspic_disj(L)=R=>R=$aspic_disj(L).
 
 
 
@@ -422,6 +440,5 @@ p(rule,S,R,T),p(head,S,":-"++S2,T1)=>p(body,S2,R,T2),T=$aspic_impl(T2,T1),d(T).
 p(rule,S,R,T),p(head,S,"<=>"++S2,T1)=>p(body,S2,R,T2),T=$aspic_equiv(T1,T2),d(T).
 p(rule,S,R,T),p(head,S,"."++R,T1)=>T=T1,d(T).
 
-p(program,S,R,T),p(rule,S,S2,T1)=>p(program,S2,R,T2),T=[T1|T2].
+p(program,S,R,T),p(rule,S,S2,T1)=>p(program,S2,R,T2),T=[[T1,S[1..S.len-S2.len]]|T2].
 p(program,S,R,T)=>R=S,T=[].
-
