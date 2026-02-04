@@ -1,4 +1,5 @@
-main:-&
+main:-
+&cond((
 S=fd(s,4),
 E=fd(e,4),
 N=fd(n,4),
@@ -13,6 +14,7 @@ Y=fd(y,4),
 					  (1000 * M + 100 * O + 10 * R + E) #=
 (10000 * M + 1000 * O + 100 * N + 10 * E + Y),
 all_different([S,E,N,D,M,O,R,Y])
-&.
+),1,1)&.
+
 % :-not main.
 
