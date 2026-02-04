@@ -317,7 +317,7 @@ aspic_conj0(X)=Y=>X2=[Y:Y in X,not(Y==1)],Y=cond(aspic_member(0,X2),0,cond(X2=[A
 aspic_conj(X)=Y=>Y=aspic_conj0(X),d(aspic_conj_called=X),d(aspic_conj_result=Y).
 aspic_disj(X)=Y=>X2=[Y:Y in X,not(Y==0)],Y=cond(aspic_member(1,X2),1,cond(X2=[A],A,cond(X2==[],0,$aspic_disj(X2)))).
 
-aspic_impl(A,B)=Y=>if(not(A==0))if(A==1)Y=B else Y=$impl(A,B) end else Y=1 end.
+aspic_impl(A,B)=Y=>if(not(A==0))if(A==1)Y=B else Y=$aspic_impl(A,B) end else Y=1 end.
 
 
 
