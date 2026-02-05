@@ -56,7 +56,7 @@ getvars(T)=R,T=..L=>F=L[1],N=L.len-1,H=get_heap_map(aspic_ranges),R=[Y:I in 2..L
 getvars2(T,P)=R,T=$var(Z,D)=>R=[[Z,joindomains(D,P)]].
 getvars2(T,_)=R=>R=getvars(T).
 
-getsetvars(T)=R,functor(T,$set,_)=>T=..L,R=[Y:X in tail(L),Y in getvars(X)].remove_dups.
+getsetvars(T)=R,functor(T,$set,_)=>T=..L,R=[Y:X in tail(L),Y in getvars(X)].remove_dups.compactvars.
 
 replacevars(V,A,T)=R=>foreach(I in 1..V.len),S=..[$var|V[I]],T:=replace(T,S,A[I]),T:=replace(T,$var(V[I,1],[]),A[I]),end,R=T. %,pp({v=V,a=A,t=T,r=R}).
 adddomaintovars(V,T)=R=>foreach(I in 1..V.len),V[I]=$var(X,D),T:=replace(T,$var(X,[]),V[I]),end,R=T.
@@ -147,7 +147,7 @@ if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
 d(orig=Orig),
 %println(stderr,"% "++Orig)
 %println(stderr,"d(\""++L.to_string()++"\"),")
-V=getvars(L2)
+V=getvars(L2).compactvars
 ,d(v=V)
 ,varsdomaininit(L2,L2B,[$var(A1,B1):C1 in V,C1=[A1,B1],B1!=[]],VI)
 ,d({l2b=L2B,vi=VI})
@@ -200,7 +200,7 @@ println(stderr,"aspic_stoplearning(),")
 ,println(stderr,"L=[]")
 ,foreach(L0 in T,L0=[L,Orig],L2 in allvariants(L))
 %d(orig=L)
-,V=getvars(L2)
+,V=getvars(L2).compactvars
 ,varsdomaininit(L2,L2B,[],VI)
 ,L2C=adddomaintovars(VI,L2B)
 ,L2:=L2C
@@ -214,7 +214,7 @@ end
 %d(l2=L2)
 L2:=$aspic_impl($set(B),H)
 %,d(l2=L2)
-,V:=getvars(L2)
+,V:=getvars(L2).compactvars
 %,d(v=V)
 ,L3=replacevars(V,[X[1]:X in V],L2)
 %,d(l3=L3)
@@ -227,7 +227,7 @@ L2:=$aspic_impl($set(B),H)
 %,d(h2=H2)
 ,H2C=getaspcompletionhead(H2)
 %,d(h2c=H2C)
-,V3=getvars(H2C)
+,V3=getvars(H2C).compactvars
 ,H2C:=replacevars(V3,[X[1]:X in V3],H2C)
 %,d(h2=H2C)
 ,H2C=[H3,C3]
@@ -397,7 +397,7 @@ p(term,S,R,T),S=[A|S2],(ascii_lowercase(A)),p(restterm,S2,R,T2) %had to disable 
 p(restterm,S,R,T),S=[A|S2],(ascii_alpha_digit(A);member(A,"_")),p(restterm,S2,R,T2)=>T=[A|T2].
 p(restterm,S,R,T),S=R=>T=[].
 
-p(num,S,R,T),S=[A|S2],ascii_digit(A),p(restnum,S2,R,T2)=>T=[A|T2].to_int.
+p(num,S,R,T),S=[A|S2],(ascii_digit(A);A='-'),p(restnum,S2,R,T2)=>T=[A|T2].to_int.
 % p(num,S,R,T),S=[A|R],ascii_digit(A)=>T=[A].
 p(restnum,S,R,T),S=[A|S2],(ascii_digit(A);member(A,"_")),p(restnum,S2,R,T2)=>T=[A|T2].
 p(restnum,S,R,T),S=R=>T=[].
