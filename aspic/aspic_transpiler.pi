@@ -61,8 +61,8 @@ getsetvars(T)=R,functor(T,$set,_)=>T=..L,R=[Y:X in tail(L),Y in getvars(X)].remo
 replacevars(V,A,T)=R=>foreach(I in 1..V.len),S=..[$var|V[I]],T:=replace(T,S,A[I]),T:=replace(T,$var(V[I,1],[]),A[I]),end,R=T. %,pp({v=V,a=A,t=T,r=R}).
 adddomaintovars(V,T)=R=>foreach(I in 1..V.len),V[I]=$var(X,D),T:=replace(T,$var(X,[]),V[I]),end,R=T.
 
-compactvars(VI,V)=R=>d(compactvars),L=adddomaintovars(VI,[$var(K,P):X in V,X=[K,P]]).remove_dups()
-,R=[[K,P]:X in L,X=$var(K,P)],d(compactvars_end).
+compactvars(VI,V)=R=>L=adddomaintovars(VI,[$var(K,P):X in V,X=[K,P]]).remove_dups()
+,R=[[K,P]:X in L,X=$var(K,P)].
 compactvars(V)=compactvars([$var(A1,B1):C1 in V,C1=[A1,B1],B1!=[]],V).
 
 
