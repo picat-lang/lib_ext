@@ -280,6 +280,10 @@ L2:=L[8..L.len].split("=").map(strip)
 ,V:=L2[2]
 ,C:=[(L2[1].to_atom,V[1..V.len-1].to_int)|C]
 end
+,if(L[1..10]=="#minimize ") then
+%p(,,ROpt,TOpt)
+d("optimization not implemented yet")
+end
 ,L:=[]
 end
 ,foreach(K in 1..L.len-3)
@@ -431,6 +435,8 @@ p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,">"++S3,T2),p(nv,S3,R,T3)=>T3B=T3+1,
 p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,"<"++S3,T2),p(nv,S3,R,T3)=>T3B=T3-1,T=$aspic_card(T2,[],T3B). %todo pass properly
 p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,S3,T2),p(nv,S3,R,T3)=>T=$aspic_card(T2,[],T3).
 p(card,S,R,T)=>paren(cardobj,"{","}",S,R,T2),T=$aspic_card(T2).
+
+%p(objfun,S,R,T)=>paren(cardobj,"{","}",S,R,T2),
 
 p(range,S,R,T),p(ae,S,".."++S2,T1),p(ae,S2,R,T2)=>X=uniquevarname(),T=$var(X,$range(T1,T2)).
 
