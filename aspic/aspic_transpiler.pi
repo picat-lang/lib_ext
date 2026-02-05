@@ -44,25 +44,36 @@ allvariants([H|T])=R,H1=allvariants(H),T1=allvariants(T)=>R=[[X|Y]:X in H1, Y in
 allvariants([H|T])=R=>R1=allvariants(T),R=[[H|Y]: Y in R1].
 allvariants(T)=R,T=..[F|L]=>R=[Y: X in allvariants(L),Y=..[F|X]].
 
+joindomains([],X)=R=>R=X.
+joindomains(X,[])=R=>R=X.
+joindomains(X,Y)=R=>d(joindomains=(X,Y)),R=X.
+
 getvars(T)=R,functor(T,$set,_)=>R=[]. %stop at $set
 getvars(T)=R,functor(T,_,0)=>R=[].
 getvars(T)=R,T=$aspic_eq($var(X,[]),$var(_,$range(A,B)))=>R=[[X,$range(A,B)]].
 getvars(T)=R,T=$var(Z,D)=>R=[[Z,D]].
-getvars(T)=R,T=..L=>R=[Y:X in L,Y in getvars(X)].remove_dups.
+getvars(T)=R,T=..L=>F=L[1],N=L.len-1,H=get_heap_map(aspic_ranges),R=[Y:I in 2..L.len,X=L[I],Y in getvars2(X,H.get((F,N,I-1),[]))].remove_dups.
+getvars2(T,P)=R,T=$var(Z,D)=>R=[[Z,joindomains(D,P)]].
+getvars2(T,_)=R=>R=getvars(T).
+
 getsetvars(T)=R,functor(T,$set,_)=>T=..L,R=[Y:X in tail(L),Y in getvars(X)].remove_dups.
 
-replacevars(V,A,T)=R=>foreach(I in 1..V.len),S=..[$var|V[I]],T:=replace(T,S,A[I]),end,R=T. %,pp({v=V,a=A,t=T,r=R}).
+replacevars(V,A,T)=R=>foreach(I in 1..V.len),S=..[$var|V[I]],T:=replace(T,S,A[I]),T:=replace(T,$var(V[I,1],[]),A[I]),end,R=T. %,pp({v=V,a=A,t=T,r=R}).
 adddomaintovars(V,T)=R=>foreach(I in 1..V.len),V[I]=$var(X,D),T:=replace(T,$var(X,[]),V[I]),end,R=T.
 
-compactvars(VI,V)=R=>L=adddomaintovars(VI,[$var(K,P):X in V,X=[K,P]]).remove_dups()
-,R=[[K,P]:X in L,X=$var(K,P)].
+compactvars(VI,V)=R=>d(compactvars),L=adddomaintovars(VI,[$var(K,P):X in V,X=[K,P]]).remove_dups()
+,R=[[K,P]:X in L,X=$var(K,P)],d(compactvars_end).
+compactvars(V)=compactvars([$var(A1,B1):C1 in V,C1=[A1,B1],B1!=[]],V).
+
 
 show(A)=X,A=$f(H,T)=>H2=H,X=..[H2|T].
 show(A)=X,atom(A)=>X=A.
 show(X)=X.
 
 replaceset(T)=R,functor(T,$set,_)
-=>V=getsetvars(T),T2=replacevars(V,[X[1]:X in V],T),T2=..[_|L]
+=>V=getsetvars(T).compactvars
+,d(setvars=V)
+,T2=replacevars(V,[X[1]:X in V],T),T2=..[_|L]
 ,R="["++ (aspic_conj(L)).aspic_simplify.to_string() ++ cond(V!=[],":" ++ join([X[1].to_string()++" in "++cond(X[2]=[],"universe()",showrange(X[2])):X in V],','),"") ++ "]".
 replaceset(T)=R,functor(T,_,0)=>R=T.
 replaceset(T)=R,T=..L=>R=..[replaceset(X):X in L].
@@ -70,7 +81,9 @@ replaceset(T)=R,T=..L=>R=..[replaceset(X):X in L].
 replacesetsym(T)=R,functor(T,$set,_)
 =>
 %d(replacesetsym_in=T),
-V=getsetvars(T),T2=replacevars(V,[X[1]:X in V],T),T2=..[_|L]
+V=getsetvars(T).compactvars
+,d(setvarssym=V)
+,T2=replacevars(V,[X[1]:X in V],T),T2=..[_|L]
 ,R=[(aspic_conj(L)),V].
 %.to_string() ++ cond(V!=[],":" ++ join([X[1].to_string()++" in "++cond(X[2]=[],"universe()",showrange(X[2])):X in V],','),"") ++ "]".
 replacesetsym(T)=R,functor(T,_,0)=>R=[T,[]].
@@ -110,32 +123,55 @@ aspic_simplify(X)=R=>R=X.
 % aspic_render(F)=R,number(F)=>R=F.to_string().
 % aspic_render(A)=R,A=..L=>L2=aspic_render(L),R=L2[1]++"("++L2[2..L2.len].join(",")++")".
 
+% learnranges(T,V),T=$aspic_impl(A,B)=>learnranges(B,V).
+% learnranges(T,V),T=$aspic_equiv(A,B)=>true.
+learnranges(T0,V),CH=getaspcompletionhead(T0),T:=CH[1],d(learnranges=T0),d(ch=T),functor(T,F,N),N>0=>
+d(learn_for=F)
+,T=..L
+,K=0
+,H=get_heap_map(aspic_ranges)
+,foreach(W in tail(L))
+K:=K+1
+,foreach([W,R]in V,atom(W))
+d((F,K)=R)
+,H.put((F,N,K),R)
+end
+end
+.
+learnranges(T,V)=>d(learnranges_warning=T).
+
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 translate_rules(T,Phase)=>
 foreach(L0 in T,L0=[L,Orig],L2 in allvariants(L))
 if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
-%d(orig=Orig)
+d(orig=Orig),
 %println(stderr,"% "++Orig)
 %println(stderr,"d(\""++L.to_string()++"\"),")
 V=getvars(L2)
-%,d(v=V)
-,varsdomaininit(L2,L2B,[],VI)
-%,d({l2b=L2B,vi=VI})
+,d(v=V)
+,varsdomaininit(L2,L2B,[$var(A1,B1):C1 in V,C1=[A1,B1],B1!=[]],VI)
+,d({l2b=L2B,vi=VI})
 ,V:=compactvars(VI,V)
-%,d(v=V)
+,d(v=V)
 ,L2:=adddomaintovars(VI,L2B)
 %,d(vi=VI)
 %,d(vars=V)
 %,println(stderr,"foreach(_ in 1..1)")
 ,if(V=[]) then
+%d(l2=L2),
 println(stderr,"aspic_holds("++replaceset(L2).aspic_simplify.to_string()++")")
 ,println(stderr,",")
 else
+d(l2=L2),
 foreach(V2 in V)
 println(stderr,"foreach("++V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2]))++")")
 end
-,L3=replacevars(V,[X[1]:X in V],L2)
-,L4=replaceset(L3).aspic_simplify.to_string()
+,L3=replacevars(V,[X[1]:X in V],L2).aspic_simplify
+,d(v=V)
+,learnranges(L3,V)
+,L4=replaceset(L3)
+,d(l4=L4)
+,L4:=L4.to_string()
 ,println(stderr,"aspic_holds("++L4++"),")
 ,foreach(V2 in V)
 println(stderr,"end")
@@ -147,7 +183,7 @@ end
 .
 
 getaspcompletionhead(Y)=R,Y=$aspic_var(X)=>R=[X,[]].
-getaspcompletionhead(Y)=R,Y=$impl(_,H)=>R=getaspcompletionhead(H).
+getaspcompletionhead(Y)=R,Y=$aspic_impl(_,H)=>R=getaspcompletionhead(H).
 getaspcompletionhead(Y)=R,Y=[X|_]=>d(y=Y),R=getaspcompletionhead(X).
 getaspcompletionhead(Y)=R,Y=$aspic_card(X)=>R=getaspcompletionhead(X).
 getaspcompletionhead(Y)=R,Y=$aspic_card(X,_,_)=>R=getaspcompletionhead(X).
@@ -245,8 +281,11 @@ end
 ,translate_completion(T)
 ,if (Extra==[])
 println(stderr,"aspic_solve(ASPIC_SEARCH)")
-else println(stderr,"true")
 ,println(stderr,".")
+else
+println(stderr,"true")
+,println(stderr,".")
+end
 .
 
 main([H|X]),H="run" => main2(X,"").
