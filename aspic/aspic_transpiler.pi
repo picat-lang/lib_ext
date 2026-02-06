@@ -260,7 +260,7 @@ if(R!=[]) then
 d("ASP syntax error!")
 ,abort
 end
-,println(stderr,"import sat.\nimport aspic_runtime"++Extra++".")
+,println(stderr,"import sat.\nimport aspic_runtime"++cond(Extra==debug,"_debug","")++".")
 ,H=get_heap_map(asp_atoms)
 ,Native=get_heap_map(native_atoms)
 ,foreach(P in H.keys())
@@ -283,13 +283,19 @@ end
 println(stderr,"aspic_solve(ASPIC_SEARCH)")
 ,println(stderr,".")
 else
+if(Extra==all)
+println(stderr,"aspic_solve(ASPIC_SEARCH)")
+,println(stderr,",fail.")
+else
 println(stderr,"true")
 ,println(stderr,".")
 end
+end
 .
 
-main([H|X]),H="run" => main2(X,"").
-main([H|X]),H="rundebug" => main2(X,"_debug").
+main([H|X]),H="run" => main2(X,[]).
+main([H|X]),H="rundebug" => main2(X,debug).
+main([H|X]),H="all" => main2(X,all).
 main([H|X]),H="syntaxdebug" => main1(X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% ASP Parser %%%%%%%%%%%%%%%%%%%%%%%%%%

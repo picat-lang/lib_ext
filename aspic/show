@@ -21,23 +21,24 @@ def main():
         arity=-1
         functor=spec
 
-    text = sys.stdin.read()
+    for text in sys.stdin:
 
-    # Match functor(args...)
-    pattern = re.compile(r'\b' + re.escape(functor) + r'\(([^()]*)\)')
+        # Match functor(args...)
+        pattern = re.compile(r'\b' + re.escape(functor) + r'\(([^()]*)\)')
 
-    terms = []
-    for m in pattern.finditer(text):
-        args_str = m.group(1)
-        if args_str.strip() == "":
-            n_args = 0
-        else:
-            n_args = len([a for a in args_str.split(',') if a.strip() != ""])
-        if arity==-1 or n_args == arity:
-            terms.append(m.group(0))
+        terms = []
+        for m in pattern.finditer(text):
+            args_str = m.group(1)
+            if args_str.strip() == "":
+                n_args = 0
+            else:
+                n_args = len([a for a in args_str.split(',') if a.strip() != ""])
+            if arity==-1 or n_args == arity:
+                terms.append(m.group(0))
 
-    for term in sorted(terms):
-        print(term)
+        for term in sorted(terms):
+            print(term)
+        print("-----------------------------------")
 
 if __name__ == "__main__":
     main()

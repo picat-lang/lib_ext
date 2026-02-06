@@ -35,6 +35,14 @@ color(luxembourg,red)
 color(netherlands,green)
 ```
 
+# Generating all solutions:
+
+To generate all solutions, instead of a single one, add "all" when calling ASPIC:
+
+```
+picat -log aspic.pi ASPFILE.lp all
+```
+
 # Not implemented yet:
 
 * Optimization support
