@@ -9,7 +9,7 @@ d(X)=>println(stderr,X).
 
 aspic_markfd(T)=>M=get_heap_map(aspic_fdvars),M.put(T,1).
 aspic_isfdvariable(T)=>get_heap_map(aspic_fdvars).has_key(T).
-fd(A,N)=R=>R#=sum([V*2**(I-1):I in 1..N,T=..[A,I],V=aspic_var(T),aspic_markfd(T)]).
+fd(A,N)=R=>A=..L,R#=sum([V*2**(I-1):I in 1..N,T=..(L++[I]),V=aspic_var(T),aspic_markfd(T)]).
 
 aspic_startlearning()=>M=get_heap_map(aspic_learning),M.put(now,1),d(started_learning).
 aspic_stoplearning()=>M=get_heap_map(aspic_learning),M.put(now,0),M.del(universe),d(stopped_learning).
