@@ -1,13 +1,13 @@
 % from https://potassco.org/clingo/run/?example
 % aspic
-% times with completion
-% 128 1.2 s
-% 256 6.7 s
-% 512 30 s
-% 768 20 m
-% 1024 55 m 14s
+% times with completion on AMD EPYC 9654
+% 128    0.9 s
+% 256    3.2 s
+% 512   26.2 s
+% 768   89.3 s
+% 1024 944.6 s
 
-#const n = 128.
+#const n = 1024.
 
 
 % n-Queens encoding
