@@ -146,7 +146,8 @@ foreach(L0 in T,L0=[L,Orig],L2 in allvariants(L))
 if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
 d(orig=Orig),
 %println(stderr,"% "++Orig)
-%println(stderr,"d(\""++L.to_string()++"\"),")
+%println(stderr,"d(\""++Orig++"\"),"),
+%println(stderr,"d(\""++L.to_string()++"\"),"),
 V=getvars(L2).compactvars
 ,d(v=V)
 ,varsdomaininit(L2,L2B,[$var(A1,B1):C1 in V,C1=[A1,B1],B1!=[]],VI)
@@ -186,7 +187,8 @@ getaspcompletionhead(Y)=R,Y=$aspic_var(X)=>R=[X,[]].
 getaspcompletionhead(Y)=R,Y=$aspic_impl(_,H)=>R=getaspcompletionhead(H).
 getaspcompletionhead(Y)=R,Y=[X|_]=>d(y=Y),R=getaspcompletionhead(X).
 getaspcompletionhead(Y)=R,Y=$aspic_card(X)=>R=getaspcompletionhead(X).
-getaspcompletionhead(Y)=R,Y=$aspic_card(X,_,_)=>R=getaspcompletionhead(X).
+%getaspcompletionhead(Y)=R,Y=$aspic_card(X,_,_)=>R=[].
+getaspcompletionhead(Y)=R,Y=$aspic_card(X,_,_)=>R=getaspcompletionhead(X). 
 getaspcompletionhead(Y)=R,Y=$set(X)=>R=getaspcompletionhead(X).
 getaspcompletionhead(Y)=R,Y=$set(X1,X2)=>[R1,L1]=getaspcompletionhead(X1),R=[R1,[X2|L1]].
 getaspcompletionhead(X)=R=>d(notdefined_getaspcompletionhead_for=X),R=[X,[]].
