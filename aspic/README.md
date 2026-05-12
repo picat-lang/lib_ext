@@ -40,7 +40,7 @@ color(netherlands,green)
 To generate all solutions, instead of a single one, add "all" when calling ASPIC:
 
 ```
-picat -log aspic.pi ASPFILE.lp all
+picat -log aspic.pi all ASPFILE.lp
 ```
 
 # Not implemented yet:

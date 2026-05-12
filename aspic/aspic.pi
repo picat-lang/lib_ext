@@ -1,6 +1,7 @@
 import sys.
-main([FN])=>main([FN,"run"]).
-main([FN,MODE])=>
-_=command("picat -log aspic_transpiler.pi "++MODE++" "++FN++" 2>t.pi")
+import util.
+main([H|T]),H.reverse()="pl." ++ _ =>main(["run",H|T]).
+main(ARGS)=>
+_=command("picat -log aspic_transpiler.pi "++ARGS.join()++" 2>t.pi")
 ,_=command("picat -log -s 1234567890 t.pi 2>&1")
 .

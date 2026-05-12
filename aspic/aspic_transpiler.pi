@@ -256,23 +256,26 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  convert ASP from given file F to picat text on stderr
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-main2([F],Extra),A=read_file_lines(F),d(lines=A.len),asparse(A,R,T),println(stdout,notparsed=R)
+main2(FileList,Extra),A=[Line:F in FileList,AX=read_file_lines(F),Line in AX],d(lines=A.len),asparse(A,R,T),println(stdout,notparsed=R)
 =>
 if(R!=[]) then
 d("ASP syntax error!")
 ,abort
 end
 ,println(stderr,"import sat.\nimport aspic_runtime"++cond(Extra==debug,"_debug","")++".")
+,println(stderr,"var(X,_)=X.\nrange(_,_)=0.")
 ,H=get_heap_map(asp_atoms)
 ,Native=get_heap_map(native_atoms)
 ,foreach(P in H.keys())
-,N:=H.get(P)
+,LN:=H.get(P).remove_dups
+,foreach(N in LN)
 ,if(N>=1,not Native.has_key(P)) then
 print(stderr,P.to_string++"(")
 ,printxvars(N)
 ,print(stderr,")=aspic_var($"++P.to_string++"(")
 ,printxvars(N)
 ,println(stderr,")).")
+end
 end
 end
 ,println(stderr,"main=>main([""sat""]).\nmain([ASPIC_SEARCH])=>ASPIC_SEARCH:=ASPIC_SEARCH.to_atom(),")
@@ -411,12 +414,12 @@ p(restnum,S,R,T),S=[A|S2],(ascii_digit(A);member(A,"_")),p(restnum,S2,R,T2)=>T=[
 p(restnum,S,R,T),S=R=>T=[].
 p(num,S,R,T)=>p(term,S,R,T1),T=$const(T1). % for constants
 
-p(var,S,R,T),S=[A|S2],(ascii_uppercase(A);A='_'),p(restvar,S2,R,T2)=>T=$var([A|T2].to_atom,[]).
-p(restvar,S,R,T),S=[A|S2],(ascii_alpha_digit(A);member(A,"_")),p(restvar,S2,R,T2)=>T=[A|T2].
+p(var,S,R,T),S=[A|S2],(ascii_uppercase(A);A='_'),p(restvar,S2,R,T2)=>T=$var([cond(X=='\'','Q',X):X in[A|T2]].to_atom,[]). %todo reduce clash probability by substituting single quotes with a longer string
+p(restvar,S,R,T),S=[A|S2],(ascii_alpha_digit(A);member(A,"_'")),p(restvar,S2,R,T2)=>T=[A|T2].
 p(restvar,S,R,T),S=R=>T=[].
 
 %functor
-p(f,S,R,T),p(term,S,"("++S2,T1),p(listargs,S2,")"++R,T2)=>T0=..[T1|T2],T=T0,get_heap_map(asp_atoms).put(T1,T2.len).
+p(f,S,R,T),p(term,S,"("++S2,T1),p(listargs,S2,")"++R,T2)=>T0=..[T1|T2],T=T0,get_heap_map(asp_atoms).put(T1,[T2.len|get_heap_map(asp_atoms).get(T1,[])]).
 
 %list of args
 p(listargs,S,R,T)=>l(t,",",S,R,T).
@@ -475,6 +478,7 @@ p(cardobj,S,R,T),p(enum,S,R,T1)=>T=$options(T1).
 p(card,S,R,T),p(nv,S,S2,T1),paren(cardobj,"{","}",S2,S3,T2),p(nv,S3,R,T3)=>T=$aspic_card(T2,T1,T3).
 p(card,S,R,T),p(nv,S,S2,T1),paren(cardobj,"{","}",S2,S3,T2),R=S3=>T=$aspic_card(T2,T1,[]).
 p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,"=="++S3,T2),p(nv,S3,R,T3)=>T=$aspic_card(T2,T3,T3).
+p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,"!="++S3,T2),p(nv,S3,R,T3)=>T=$aspic_not($aspic_card(T2,T3,T3)).
 p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,"="++S3,T2),p(nv,S3,R,T3)=>T=$aspic_card(T2,T3,T3).
 p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,">="++S3,T2),p(nv,S3,R,T3)=>T=$aspic_card(T2,T3,[]).
 p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,"<="++S3,T2),p(nv,S3,R,T3)=>T=$aspic_card(T2,[],T3).
