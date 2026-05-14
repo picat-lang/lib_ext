@@ -2,7 +2,7 @@
 % not that fast yet with ASPIC
 % slightly modified, to avoid arithmetics in clauses head
 % explicit parantheses to workaround the parsing issues in arithmetic expressions
-#const n=4.
+#const n=24.
 {numbers(1..n*2-1)}. %populate the universe
 { queen(I,1..n) } = 1 :- I = 1..n.
 { queen(1..n,J) } = 1 :- J = 1..n.

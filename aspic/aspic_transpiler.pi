@@ -1,7 +1,9 @@
 import util.
 import sat.
+import sys.
 
 d(X)=>println(stdout,X).
+%d(X)=>writeln(stdout,X).
 dr(X)=>println(stdout,constraint=X.show).
 
 pp(A)=>foreach(X in A) println(stdout,X) end,println(stdout,-----------------------------------).
@@ -33,6 +35,8 @@ N=H.get(varnum,0),
 N2=N+1,
 H.put(varnum,N2),
 Y=("ARANGE"++N2.to_string()).to_atom().
+
+noanon(X)=cond(X=="_",uniquevarname().to_string(),X).
 
 universe=L=>M=get_heap_map(asp_atoms),L=[Z:K in M.keys,K=$f(_,Y),Z in Y].remove_dups.
 
@@ -256,13 +260,16 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  convert ASP from given file F to picat text on stderr
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-main2(FileList,Extra),A=[Line:F in FileList,AX=read_file_lines(F),Line in AX],d(lines=A.len),asparse(A,R,T),println(stdout,notparsed=R)
+main2(FileList,Extra),A=[Line:F in FileList,AX=read_file_lines(F),Line in AX],d(lines=A.len),asparse(A,R,T,Mini),println(stdout,notparsed=R)
 =>
 if(R!=[]) then
 d("ASP syntax error!")
 ,abort
 end
-,println(stderr,"import sat.\nimport aspic_runtime"++cond(Extra==debug,"_debug","")++".")
+,Constr=sat
+,if Extra==cp then Constr:=cp,end
+,_=command("sed s/ASPIC_CONSTRAINTS_LIB/"++Constr.to_string()++"/g aspic_runtime_template.pi>aspic_runtime.pi")
+,println(stderr,"import "++Constr.to_string()++".\nimport aspic_runtime"++cond(Extra==debug,"_debug","")++".")
 ,println(stderr,"var(X,_)=X.\nrange(_,_)=0.")
 ,H=get_heap_map(asp_atoms)
 ,Native=get_heap_map(native_atoms)
@@ -284,12 +291,13 @@ end
 ,println(stderr,"aspic_stoplearning(),")
 ,translate_rules(T,2) %only constraints 
 ,translate_completion(T)
-,if (Extra==[])
-println(stderr,"aspic_solve(ASPIC_SEARCH)")
+,println(stderr,"ASPIC_OPT#="++cond(Mini=[],"0",Mini)++",")
+,if (Extra==sat;Extra==cp)
+println(stderr,"aspic_solve(ASPIC_SEARCH,ASPIC_OPT)")
 ,println(stderr,".")
 else
-if(Extra==all)
-println(stderr,"aspic_solve(ASPIC_SEARCH)")
+if(Extra==allsat;Extra==allcp)
+println(stderr,"aspic_solve(ASPIC_SEARCH,ASPIC_OPT)")
 ,println(stderr,",fail.")
 else
 println(stderr,"true")
@@ -298,12 +306,26 @@ end
 end
 .
 
-main([H|X]),H="run" => main2(X,[]).
+main([H|X]),H="run" => main2(X,sat). %sat is default
+main([H|X]),H="cp" => main2(X,cp).
+main([H|X]),H="sat" => main2(X,sat).
+main([H|X]),H="all" => main2(X,allsat).
+main([H|X]),H="sat/all" => main2(X,allsat).
+main([H|X]),H="cp/all" => main2(X,allcp).
 main([H|X]),H="rundebug" => main2(X,debug).
-main([H|X]),H="all" => main2(X,all).
 main([H|X]),H="syntaxdebug" => main1(X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% ASP Parser %%%%%%%%%%%%%%%%%%%%%%%%%%
+replacesetmini(T)=R,functor(T,$set,_)
+=>
+%d(minimize=T),
+V=getsetvars(T).compactvars
+%,d(setvarsmini=V)
+,T2=replacevars(V,[X[1]:X in V],T),T2=..[_|L]
+,R="sum([cond(ASPIC_OPTCOND2#=1,"++L[1,1].to_string() ++",0)"++ cond(V!=[],":" ++ join([X[1].to_string()++" in "++cond(X[2]=[],"universe()",showrange(X[2])):X in V],','),"")
+++",ASPIC_OPTCOND1="++L[2].to_string()++",ASPIC_OPTCOND2#=ASPIC_OPTCOND1])"
+%,d(R)
+.
 
 % debug parsing
 main1([W,S])?=>
@@ -316,9 +338,10 @@ W:=to_atom(W)
 % main(_)=>true.
 
 %parse ASP from list of lines
-asparse(A,R,T)=>
+asparse(A,R,T,ObjMin)=>
 B=[]
 ,C=[]
+,Mini=[]
 ,foreach(L in A)
 if(member('%',L)) then
 I:=[J:J in 1..L.length,L[J]='%'], L:=L[1..I[1]-1]
@@ -331,8 +354,12 @@ L2:=L[8..L.len].split("=").map(strip)
 ,C:=[(L2[1].to_atom,V[1..V.len-1].to_int)|C]
 end
 ,if(L[1..10]=="#minimize ") then
-%p(,,ROpt,TOpt)
-d("optimization not implemented yet")
+%d("optimization not implemented yet")
+d(mini=[X:X in L[11..L.len],X!=' ',ord(X)>32]),
+p(mini,[X:X in L[11..L.len],X!=' ',ord(X)>32],ROpt,TOpt)
+,d(topt=TOpt)
+,Mini:=replacesetmini(TOpt)
+,println(mini=Mini)
 end
 ,L:=[]
 end
@@ -358,6 +385,7 @@ end
     ,T[J]:=replace(T[J],K,V2)
 end
 end
+,ObjMin=Mini
 .
 
 aspic_sum(A,B)=R,number(A),number(B)=>R=A+B.
@@ -366,6 +394,8 @@ aspic_diff(A,B)=R,number(A),number(B)=>R=A-B.
 aspic_diff(A,B)=R=>R=$aspic_diff(A,B).
 aspic_mul(A,B)=R,number(A),number(B)=>R=A*B.
 aspic_mul(A,B)=R=>R=$aspic_mul(A,B).
+aspic_div(A,B)=R,number(A),number(B)=>R=A/B.
+aspic_div(A,B)=R=>R=$aspic_div(A,B).
 
 aspic_member(V,[H|_]),V==H=>true.
 aspic_member(V,[_|T])=>aspic_member(V,T).
@@ -414,7 +444,7 @@ p(restnum,S,R,T),S=[A|S2],(ascii_digit(A);member(A,"_")),p(restnum,S2,R,T2)=>T=[
 p(restnum,S,R,T),S=R=>T=[].
 p(num,S,R,T)=>p(term,S,R,T1),T=$const(T1). % for constants
 
-p(var,S,R,T),S=[A|S2],(ascii_uppercase(A);A='_'),p(restvar,S2,R,T2)=>T=$var([cond(X=='\'','Q',X):X in[A|T2]].to_atom,[]). %todo reduce clash probability by substituting single quotes with a longer string
+p(var,S,R,T),S=[A|S2],(ascii_uppercase(A);A='_'),p(restvar,S2,R,T2)=>T=$var(noanon([cond(X=='\'','Q',X):X in [A|T2]]).to_atom,[]). %todo reduce clash probability by substituting single quotes with a longer string
 p(restvar,S,R,T),S=[A|S2],(ascii_alpha_digit(A);member(A,"_'")),p(restvar,S2,R,T2)=>T=[A|T2].
 p(restvar,S,R,T),S=R=>T=[].
 
@@ -436,6 +466,7 @@ p(atom,S,R,T2),(p(f,S,R,T),T2=T;p(term,S,R,T),T2=$aspic_var(T))=>true.
 p(nv,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T))=>true.
 p(factor,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T))=>true.
 p(prod,S,R,T),p(factor,S,"*"++S2,T1)=>p(prod,S2,R,T2),T=aspic_mul(T1,T2).
+p(prod,S,R,T),p(factor,S,"/"++S2,T1)=>p(prod,S2,R,T2),T=aspic_div(T1,T2).
 p(prod,S,R,T),p(factor,S,R,T)=>true.
 
 p(sum,S,R,T),p(prod,S,"+"++S2,T1)=>p(sum,S2,R,T2),T=aspic_sum(T1,T2).
@@ -469,6 +500,9 @@ p(disj,S,R,T2)=>l(conj,";",S,R,T),T2=aspic_disj(T).
 
 %enumeration
 p(enum,S,R,T)=>l(t0,";",S,R,T1),T=$options(T1).
+
+p(miniobj,S,R,T),l(nv,",",S,":"++S2,T1)=>p(disj,S2,R,T2),T=$set(T1,T2).
+p(mini,S,R,T)=>paren(miniobj,"{","}.",S,R,T).
 
 p(cardobj,S,R,T),p(head,S,":"++S2,T1)=>p(disj,S2,R,T2),T=$set(T1,T2).
 p(cardobj,S,R,T),p(head,S,R,T1)=>T=$set(T1).

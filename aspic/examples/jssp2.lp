@@ -1,4 +1,5 @@
-%it works best with cp instead of sat - see imports in aspic_runtime.pi
+%it works best with cp instead of sat
+% run it like this: aspic cp jssp2.lp
 
 %2 2
 %3 1 3 2 2 1 2
@@ -15,10 +16,10 @@ t(2,3,2,1).
 
 
 
-time(1..10).
+time(1..8).
 j(1..2).
 m(1..2).
-ta(1..20).
+ta(1..3).
 
 
 % aux pred, start and duration of task
@@ -41,7 +42,11 @@ co2(J,T,Time):-j(J),ta(T),d(J,T,S,D),time(Time),Time>=S,Time<S+D.
 covered(J,T,M,Time):-j(J),ta(T),m(M),d(J,T,S,D),t(J,T,M,D),time(Time),Time>=S,Time<S+D.
 :-time(Time),m(M),2{covered(J,T,M,Time):j(J),ta(T)}.
 
-% forced makespan (instead of optimisation)
-:-j(J),ta(T),d(J,T,S,D),S+D-1>8. 
-  
+ 
+{makespan(M):time(M)}=1. % Makespan is one timeslot
+% and no task can finish after the makespan
+:-makespan(M),j(J),ta(T),d(J,T,S,D),S+D-1>M. 
+%and we look for the shortest makespan
+#minimize {M:makespan(M)}.
+
 % #show s/3.

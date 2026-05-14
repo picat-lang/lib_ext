@@ -1,5 +1,4 @@
-import sat.
-%import cp.
+import ASPIC_CONSTRAINTS_LIB.
 import datetime.
 import util.
 
@@ -77,15 +76,19 @@ aspic_holds(A)=>if(not(A==1)) A#=1,M=get_heap_map(aspic_learning),C=1+M.get(clau
 aspic_impl(A,B)=Y=>if(not(A==0))if(A==1)Y#=B else Y#=(A#=>B)end else Y=1 end.
 aspic_equiv(A,B)=Y=>Y#=(A#<=>B).
 
-aspic_lt(A,B)=Y=>Y#=(A#<B).
-aspic_le(A,B)=Y=>Y#=(A#<=B).
-aspic_gt(A,B)=Y=>Y#=(A#>B).
-aspic_ge(A,B)=Y=>Y#=(A#>=B).
-aspic_eq(A,B)=Y=>Y#=(A#=B).
-aspic_ne(A,B)=Y=>Y#=(A#!=B).
-aspic_sum(A,B)=Y=>Y#=(A+B).
-aspic_mul(A,B)=Y=>Y#=(A*B).
-aspic_diff(A,B)=Y=>Y#=(A-B).
+aspic_vn(X),var(X)=>true.
+aspic_vn(X),number(X)=>true.
+aspic_lt(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A#<B).
+aspic_le(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A#<=B).
+aspic_gt(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A#>B).
+aspic_ge(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A#>=B).
+aspic_eq(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A#=B).
+aspic_ne(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A#!=B).
+aspic_sum(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A+B).
+aspic_mul(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A*B).
+aspic_div(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A/B).
+aspic_diff(A,B)=Y,aspic_vn(A),aspic_vn(B)=>Y#=(A-B).
+aspic_diff(A,B)=0.
 
 aspic_card(_)=1.
 aspic_card(L,A,[])=Y,A=B=>C#=sum(L),Y#=(C#>=A).
@@ -101,7 +104,7 @@ var(X)=X.
 % ,d(satclauses=NCLS)=>true.
 aspic_showsatstats(_).
 
-aspic_solve_gen()=>
+aspic_solve_gen(Mini)=>
 M=get_heap_map(aspic_atoms)
 ,MV=M.values()
 %,S::0..MV.len
@@ -117,8 +120,11 @@ d(universe=universe().sort)
 %,d(cpvars=M.keys.sort.map(show))
 ,d(cpvars=MV.len)
 ,d(cprules=get_heap_map(aspic_learning).get(clauses,0))
-,solve([rand],MV)
+,if Mini==0 then solve([rand],MV)
 ,d(solution=[K.show:K in M.keys.sort,V=M.get(K),V==1])
+else solve([$min(Mini),rand],[Mini|MV])
+,d(solution=[$optimization(Mini)|[K.show:K in M.keys.sort,V=M.get(K),V==1]])
+end
 % ,d([K.show:K in M.keys.sort,V=M.get(K),V=0])
 %,d(s=S)
 % ,d([K.show:K in M.keys()])
@@ -129,7 +135,7 @@ d("UNSAT")
 ,current_datetime().d
 .
 
-aspic_solve_min()=>
+aspic_solve_min(Mini)=>
 M=get_heap_map(aspic_atoms)
 ,MV=M.values()
 %,S::0..MV.len
@@ -155,6 +161,6 @@ d("UNSAT")
 ,current_datetime().d
 .
 
-aspic_solve(sat)=>aspic_solve_gen().
-aspic_solve(asp)=>aspic_solve_min().
+aspic_solve(sat,Mini)=>aspic_solve_gen(Mini).
+aspic_solve(asp,Mini)=>aspic_solve_min(Mini).
 
