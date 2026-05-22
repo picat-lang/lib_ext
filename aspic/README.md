@@ -92,7 +92,13 @@ color(netherlands,green)
 
 - so far only tested on Linux 
 
-# News
+# Version history
+
+v0.3:
+
+- Aggregators (#min #max #sum #count) are permitted in constraints
+
+v0.2:
 
 - Initial optimization support addded (#minimize)
 

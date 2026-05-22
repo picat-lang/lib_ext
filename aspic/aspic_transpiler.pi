@@ -53,6 +53,7 @@ joindomains(X,[])=R=>R=X.
 joindomains(X,Y)=R=>d(joindomains=(X,Y)),R=X.
 
 getvars(T)=R,functor(T,$set,_)=>R=[]. %stop at $set
+getvars(T)=R,functor(T,$valset,_)=>R=[]. %stop at $valset
 getvars(T)=R,functor(T,_,0)=>R=[].
 getvars(T)=R,T=$aspic_eq($var(X,[]),$var(_,$range(A,B)))=>R=[[X,$range(A,B)]].
 getvars(T)=R,T=$var(Z,D)=>R=[[Z,D]].
@@ -60,7 +61,8 @@ getvars(T)=R,T=..L=>F=L[1],N=L.len-1,H=get_heap_map(aspic_ranges),R=[Y:I in 2..L
 getvars2(T,P)=R,T=$var(Z,D)=>R=[[Z,joindomains(D,P)]].
 getvars2(T,_)=R=>R=getvars(T).
 
-getsetvars(T)=R,functor(T,$set,_)=>T=..L,R=[Y:X in tail(L),Y in getvars(X)].remove_dups.compactvars.
+%getsetvars(T)=R,functor(T,$set,_)=>T=..L,R=[Y:X in tail(L),Y in getvars(X)].remove_dups.compactvars.
+getsetvars(T)=R=>T=..L,R=[Y:X in tail(L),Y in getvars(X)].remove_dups.compactvars.
 
 replacevars(V,A,T)=R=>foreach(I in 1..V.len),S=..[$var|V[I]],T:=replace(T,S,A[I]),T:=replace(T,$var(V[I,1],[]),A[I]),end,R=T. %,pp({v=V,a=A,t=T,r=R}).
 adddomaintovars(V,T)=R=>foreach(I in 1..V.len),V[I]=$var(X,D),T:=replace(T,$var(X,[]),V[I]),end,R=T.
@@ -73,6 +75,28 @@ compactvars(V)=compactvars([$var(A1,B1):C1 in V,C1=[A1,B1],B1!=[]],V).
 show(A)=X,A=$f(H,T)=>H2=H,X=..[H2|T].
 show(A)=X,atom(A)=>X=A.
 show(X)=X.
+
+replaceaggregates(T)=R,T=$aspic_agval(Op,Rest)=>R="aspic_"++Op.to_string()++Rest.
+replaceaggregates(T)=R,functor(T,_,0)=>R=T.
+replaceaggregates(T)=R,T=..L=>R=..[replaceaggregates(X):X in L].
+
+
+replacesetmini(T)=R,functor(T,$valset,_)
+=>
+d(rsmini=T),
+V=getsetvars(T).compactvars
+%,d(setvarsmini=V)
+,T2=replacevars(V,[X[1]:X in V],T),T2=..[_|L]
+,d(t2=T2)
+,d(l=L)
+,d(l11=L[1,1])
+,R="([ASPIC_OPTCOND3"++ cond(V!=[],":" ++ join([X[1].to_string()++" in "++cond(X[2]=[],"universe()",showrange(X[2])):X in V],','),"")
+++",ASPIC_OPTCOND1="++L[2].to_string()++",ASPIC_OPTCOND2#=ASPIC_OPTCOND1,ASPIC_AGVAL1="++L[1,1].to_string()++",ASPIC_AGVAL2#=ASPIC_AGVAL1,ASPIC_OPTCOND3#=cond(ASPIC_OPTCOND2,ASPIC_AGVAL2,0)])"
+,d(r=R)
+,d(rsmini_done_for=T)
+.
+replacesetmini(T)=R,functor(T,_,0)=>R=T.
+replacesetmini(T)=R,T=..L=>R=..[replacesetmini(X):X in L].
 
 replaceset(T)=R,functor(T,$set,_)
 =>V=getsetvars(T).compactvars
@@ -164,17 +188,18 @@ V=getvars(L2).compactvars
 %,println(stderr,"foreach(_ in 1..1)")
 ,if(V=[]) then
 %d(l2=L2),
-println(stderr,"aspic_holds("++replaceset(L2).aspic_simplify.to_string()++")")
+println(stderr,"aspic_holds("++replaceset(L2.replacesetmini.replaceaggregates).aspic_simplify.to_string()++")")
 ,println(stderr,",")
 else
-d(l2=L2),
+d(l2x=L2),
 foreach(V2 in V)
 println(stderr,"foreach("++V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2]))++")")
 end
 ,L3=replacevars(V,[X[1]:X in V],L2).aspic_simplify
 ,d(v=V)
 ,learnranges(L3,V)
-,L4=replaceset(L3)
+,d(l3=L3)
+,L4=replaceset(L3.replacesetmini.replaceaggregates)
 ,d(l4=L4)
 ,L4:=L4.to_string()
 ,println(stderr,"aspic_holds("++L4++"),")
@@ -262,13 +287,15 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 main2(FileList,Extra),A=[Line:F in FileList,AX=read_file_lines(F),Line in AX],d(lines=A.len),asparse(A,R,T,Mini),println(stdout,notparsed=R)
 =>
+d(extra=Extra),
 if(R!=[]) then
 d("ASP syntax error!")
 ,abort
 end
 ,Constr=sat
 ,if Extra==cp then Constr:=cp,end
-,_=command("sed s/ASPIC_CONSTRAINTS_LIB/"++Constr.to_string()++"/g aspic_runtime_template.pi>aspic_runtime.pi")
+,if Extra==allcp then Constr:=cp,end,
+_=command("sed s/ASPIC_CONSTRAINTS_LIB/"++Constr.to_string()++"/g aspic_runtime_template.pi>aspic_runtime.pi")
 ,println(stderr,"import "++Constr.to_string()++".\nimport aspic_runtime"++cond(Extra==debug,"_debug","")++".")
 ,println(stderr,"var(X,_)=X.\nrange(_,_)=0.")
 ,H=get_heap_map(asp_atoms)
@@ -316,16 +343,6 @@ main([H|X]),H="rundebug" => main2(X,debug).
 main([H|X]),H="syntaxdebug" => main1(X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% ASP Parser %%%%%%%%%%%%%%%%%%%%%%%%%%
-replacesetmini(T)=R,functor(T,$set,_)
-=>
-%d(minimize=T),
-V=getsetvars(T).compactvars
-%,d(setvarsmini=V)
-,T2=replacevars(V,[X[1]:X in V],T),T2=..[_|L]
-,R="sum([cond(ASPIC_OPTCOND2#=1,"++L[1,1].to_string() ++",0)"++ cond(V!=[],":" ++ join([X[1].to_string()++" in "++cond(X[2]=[],"universe()",showrange(X[2])):X in V],','),"")
-++",ASPIC_OPTCOND1="++L[2].to_string()++",ASPIC_OPTCOND2#=ASPIC_OPTCOND1])"
-%,d(R)
-.
 
 % debug parsing
 main1([W,S])?=>
@@ -353,12 +370,12 @@ L2:=L[8..L.len].split("=").map(strip)
 ,V:=L2[2]
 ,C:=[(L2[1].to_atom,V[1..V.len-1].to_int)|C]
 end
-,if(L[1..10]=="#minimize ") then
+,if(L[1..9]=="#minimize") then
 %d("optimization not implemented yet")
-d(mini=[X:X in L[11..L.len],X!=' ',ord(X)>32]),
-p(mini,[X:X in L[11..L.len],X!=' ',ord(X)>32],ROpt,TOpt)
+d(mini=[X:X in L[10..L.len],X!=' ',ord(X)>32]),
+p(mini,[X:X in L[10..L.len],X!=' ',ord(X)>32],ROpt,TOpt)
 ,d(topt=TOpt)
-,Mini:=replacesetmini(TOpt)
+,Mini:="sum"++replacesetmini(TOpt)
 ,println(mini=Mini)
 end
 ,L:=[]
@@ -464,7 +481,8 @@ p(atom,S,R,T2),(p(f,S,R,T),T2=T;p(term,S,R,T),T2=$aspic_var(T))=>true.
 
 %num or var or expr in parentheses
 p(nv,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T))=>true.
-p(factor,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T))=>true.
+p(factor,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T);p(agval,S,R,T))=>true.
+% ;S="-"++S2,p(nv,S2,R,T2),T=aspic_diff(0,T2))=>true.
 p(prod,S,R,T),p(factor,S,"*"++S2,T1)=>p(prod,S2,R,T2),T=aspic_mul(T1,T2).
 p(prod,S,R,T),p(factor,S,"/"++S2,T1)=>p(prod,S2,R,T2),T=aspic_div(T1,T2).
 p(prod,S,R,T),p(factor,S,R,T)=>true.
@@ -501,7 +519,7 @@ p(disj,S,R,T2)=>l(conj,";",S,R,T),T2=aspic_disj(T).
 %enumeration
 p(enum,S,R,T)=>l(t0,";",S,R,T1),T=$options(T1).
 
-p(miniobj,S,R,T),l(nv,",",S,":"++S2,T1)=>p(disj,S2,R,T2),T=$set(T1,T2).
+p(miniobj,S,R,T),l(ae,",",S,":"++S2,T1)=>p(disj,S2,R,T2),T=$valset(T1,T2).
 p(mini,S,R,T)=>paren(miniobj,"{","}.",S,R,T).
 
 p(cardobj,S,R,T),p(head,S,":"++S2,T1)=>p(disj,S2,R,T2),T=$set(T1,T2).
@@ -521,7 +539,15 @@ p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,"<"++S3,T2),p(nv,S3,R,T3)=>T3B=T3-1,
 p(card,S,R,T),S2=S,paren(cardobj,"{","}",S2,S3,T2),p(nv,S3,R,T3)=>T=$aspic_card(T2,[],T3).
 p(card,S,R,T)=>paren(cardobj,"{","}",S,R,T2),T=$aspic_card(T2).
 
-%p(objfun,S,R,T)=>paren(cardobj,"{","}",S,R,T2),
+p(aggreg,S,R,T),S="#sum"++R=>T=$sum.
+p(aggreg,S,R,T),S="#max"++R=>T=$max.
+p(aggreg,S,R,T),S="#min"++R=>T=$min.
+p(aggreg,S,R,T),S="#count"++R=>T=$count.
+
+p(valset,S,R,T),p(nv,S,":"++S2,T1)=>p(disj,S2,R,T2),T=$valset([T1],T2).
+p(valset,S,R,T),p(nv,S,R,T1)=>T=$valset([T1]).
+
+p(agval,S,R,T),p(aggreg,S,S2,Op),paren(valset,"{","}",S2,R,T2)=>T=$aspic_agval(Op,T2).
 
 p(range,S,R,T),p(ae,S,".."++S2,T1),p(ae,S2,R,T2)=>X=uniquevarname(),T=$var(X,$range(T1,T2)).
 
