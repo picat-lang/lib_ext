@@ -423,18 +423,22 @@ aspic_disj(X)=Y=>X2=[Y:Y in X,not(Y==0)],Y=cond(aspic_member(1,X2),1,cond(X2=[A]
 
 aspic_impl(A,B)=Y=>if(not(A==0))if(A==1)Y=B else Y=$aspic_impl(A,B) end else Y=1 end.
 
-
-
 %aspic_conj([X])=R=>R=X.
 %aspic_conj(L)=R=>R=$aspic_conj(L).
 %aspic_disj([X])=R=>R=X.
 %aspic_disj(L)=R=>R=$aspic_disj(L).
 
-
-
 %list (type L) of terms of type T separated with sep Sep
-l(T,Sep,S,R,AT),p(T,S,Sep++R1,T1)=>l(T,Sep,R1,R,T2),AT=[T1|T2].
-l(T,_,S,R,AT)=>p(T,S,R,T1),AT=[T1].
+
+l(T,Sep,S,R,AT),p(T,S,SepR1,T1)=>
+        if(SepR1=Sep++R1)
+        l(T,Sep,R1,R,T2),AT=[T1|T2]
+        else R=SepR1,AT=[T1]
+        end.
+
+%l(T,Sep,S,R,AT),p(T,S,Sep++R1,T1)=>l(T,Sep,R1,R,T2),AT=[T1|T2].
+%l(T,_,S,R,AT)=>p(T,S,R,T1),AT=[T1].
+%l(_,_,S,R,AT)=>S=R,AT=[].
 
 %paren
 paren(L,PO,PC,S,R,T),S=PO++S2,p(L,S2,PC++R,T1)=>T=T1.
@@ -445,6 +449,14 @@ paren(L,PO,PC,S,R,T),S=PO++S2,p(L,S2,PC++R,T1)=>T=T1.
 % p(ab,S,R),S="ac"++R=>d(c1).
 % p(ab,S,R),S="a"++X,p(ab,X,"b"++R)=>d(b2).
 % p(ab,S,R),S="a"++X,p(ab,X,"c"++R)=>d(c2).
+
+op1(X)=>member(X,"*/").
+aspic_muldiv('*',A,B)=aspic_mul(A,B).
+aspic_muldiv('/',A,B)=aspic_div(A,B).
+
+op2(X)=>member(X,"+-").
+aspic_sumsub('+',A,B)=aspic_sum(A,B).
+aspic_sumsub('-',A,B)=aspic_diff(A,B).
 
 p(term,S,R,T),S=[A|S2],(ascii_lowercase(A)),p(restterm,S2,R,T2) %had to disable the "native atoms" clash with the picat code islands syntax
 	=>A='&',T=T2.to_atom,get_heap_map(native_atoms).put(T,1)
@@ -482,13 +494,11 @@ p(atom,S,R,T2),(p(f,S,R,T),T2=T;p(term,S,R,T),T2=$aspic_var(T))=>true.
 %num or var or expr in parentheses
 p(nv,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T))=>true.
 p(factor,S,R,T),(p(num,S,R,T);p(var,S,R,T);paren(ae,"(",")",S,R,T);p(agval,S,R,T))=>true.
-% ;S="-"++S2,p(nv,S2,R,T2),T=aspic_diff(0,T2))=>true.
-p(prod,S,R,T),p(factor,S,"*"++S2,T1)=>p(prod,S2,R,T2),T=aspic_mul(T1,T2).
-p(prod,S,R,T),p(factor,S,"/"++S2,T1)=>p(prod,S2,R,T2),T=aspic_div(T1,T2).
+
+p(prod,S,R,T),p(factor,S,[H|S2],T1),op1(H)=>p(prod,S2,R,T2),T=aspic_muldiv(H,T1,T2).
 p(prod,S,R,T),p(factor,S,R,T)=>true.
 
-p(sum,S,R,T),p(prod,S,"+"++S2,T1)=>p(sum,S2,R,T2),T=aspic_sum(T1,T2).
-p(sum,S,R,T),p(prod,S,"-"++S2,T1)=>p(sum,S2,R,T2),T=aspic_diff(T1,T2).
+p(sum,S,R,T),p(prod,S,[H|S2],T1),op2(H)=>p(sum,S2,R,T2),T=aspic_sumsub(H,T1,T2).
 p(sum,S,R,T2),p(prod,S,R,T)=>T2=T.
 %arith expr
 p(ae,S,R,T)=>p(sum,S,R,T).

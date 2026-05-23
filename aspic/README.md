@@ -94,6 +94,10 @@ color(netherlands,green)
 
 # Version history
 
+v0.3.1:
+
+- Faster parsing of ASP code
+
 v0.3:
 
 - Aggregators (#min #max #sum #count) are permitted in constraints

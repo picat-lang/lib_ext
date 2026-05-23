@@ -51,6 +51,7 @@ else
 R=universe0()
 end.
 
+aspic_sum(X)=X.
 
 logprod([])=Z=>Z=1.
 logprod([X])=Z=>Z=X.
