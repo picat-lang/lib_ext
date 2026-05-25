@@ -94,6 +94,11 @@ color(netherlands,green)
 
 # Version history
 
+v0.3.2:
+
+- Fixes: proper handling of table-like facts e.g. p(1,2;3,8) ; added missing
+  aggregators; turned off the debug info
+
 v0.3.1:
 
 - Faster parsing of ASP code

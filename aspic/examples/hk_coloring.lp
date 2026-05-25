@@ -15,10 +15,10 @@ countries(belgium;denmark;france;germany;netherlands;luxembourg).
 colors(red;green;blue;white).
 
 
-arc(france,belgium;luxembourg;germany).
-arc(luxembourg,germany;belgium).
+arc(france,(belgium;luxembourg;germany)).
+arc(luxembourg,(germany;belgium)).
 arc(netherlands,belgium).
-arc(germany,belgium;netherlands;denmark).
+arc(germany,(belgium;netherlands;denmark)).
 
 neighbour(X,Y) :- arc(X,Y).
 neighbour(Y,X) :- arc(X,Y).
