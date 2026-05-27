@@ -1,6 +1,11 @@
 import ASPIC_CONSTRAINTS_LIB.
 import datetime.
 import util.
+import os.
+import math.
+import ordset.
+import datetime.
+
 
 ismember(X,L)=T,member(X,L)=>T=1.
 ismember(_,_)=T=>T=0.
@@ -10,6 +15,11 @@ d(X)=>println(stderr,X).
 aspic_markfd(T)=>M=get_heap_map(aspic_fdvars),M.put(T,1).
 aspic_isfdvariable(T)=>get_heap_map(aspic_fdvars).has_key(T).
 fd(A,N)=R=>A=..L,R#=sum([V*2**(I-1):I in 1..N,T=..(L++[I]),V=aspic_var(T),aspic_markfd(T)]).
+showfd(KF)=Y=>
+KF=..L0
+,M=get_heap_map(aspic_fdvars)
+,MV=get_heap_map(aspic_atoms)
+,Y=sum([2**(I-1):K in M.keys,MV.get(K)==1,K=..L,L.removelast==L0,I=L.last]).
 
 aspic_startlearning()=>M=get_heap_map(aspic_learning),M.put(now,1),d(started_learning).
 aspic_stoplearning()=>M=get_heap_map(aspic_learning),M.put(now,0),M.del(universe),d(stopped_learning).
@@ -39,7 +49,11 @@ end
 %,d(vals=M)
 .
 
+removelast(L)=L.reverse.tail.reverse.
+
 show(X)=X.
+
+
 universe0=L=>M=get_heap_map(aspic_atoms),L=[Z:K in M.keys,K=..[_|Y],Z in Y].remove_dups. % ,d(L).
 universe=R=>
 M=get_heap_map(aspic_learning)
@@ -123,15 +137,17 @@ M=get_heap_map(aspic_atoms)
 %;(solve([$min(S)],[S|MV])
 ;(
 %d(presolution=[K.show=V:K in M.keys.sort,V=M.get(K)]),
-d(universe=universe().sort)
-,d(universe_size=universe().len)
+%d(universe=universe().sort),
+d(universe_size=universe().len)
 %,d(cpvars=M.keys.sort.map(show))
 ,d(cpvars=MV.len)
 ,d(cprules=get_heap_map(aspic_learning).get(clauses,0))
 ,if Mini==0 then solve([rand],MV)
-,d(solution=[K.show:K in M.keys.sort,V=M.get(K),V==1])
+,d(solution=[K.show:K in M.keys.sort,V=M.get(K),V==1,not aspic_isfdvariable(K)]
+++[X=X.showfd:X in [F:K in M.keys,aspic_isfdvariable(K),K=..L,L2=L.removelast,F=..L2].remove_dups.sort])
 else solve([$min(Mini),rand],[Mini|MV])
-,d(solution=[$optimization(Mini)|[K.show:K in M.keys.sort,V=M.get(K),V==1]])
+,d(solution=[$optimization(Mini)|[K.show:K in M.keys.sort,V=M.get(K),V==1,not aspic_isfdvariable(K)]]
+++[X=X.showfd:X in [F:K in M.keys,aspic_isfdvariable(K),K=..L,L2=L.removelast,F=..L2].remove_dups.sort])
 end
 % ,d([K.show:K in M.keys.sort,V=M.get(K),V=0])
 %,d(s=S)
@@ -143,32 +159,5 @@ d("UNSAT")
 ,current_datetime().d
 .
 
-aspic_solve_min(Mini)=>
-M=get_heap_map(aspic_atoms)
-,MV=M.values()
-%,S::0..MV.len
-,S#=sum(MV)
-,d("starting to solve")
- ,(aspic_showsatstats(MV),fail
-%;solve([dump],MV),fail
-;(solve([$min(S)],[S|MV])
-%;(solve([rand],MV)
-,d(solution=[K.show:K in M.keys.sort,V=M.get(K),V==1])
-,d(universe=universe().sort)
-,d(universe_size=universe().len)
-%,d(cpvars=M.keys.sort.map(show))
-,d(cpvars=MV.len)
-,d(cprules=get_heap_map(aspic_learning).get(clauses,0))
-% ,d([K.show:K in M.keys.sort,V=M.get(K),V=0])
-,d(s=S)
-% ,d([K.show:K in M.keys()])
-)
-;
-d("UNSAT")
-)
-,current_datetime().d
-.
-
 aspic_solve(sat,Mini)=>aspic_solve_gen(Mini).
-aspic_solve(asp,Mini)=>aspic_solve_min(Mini).
 

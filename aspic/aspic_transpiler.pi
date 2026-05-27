@@ -178,7 +178,7 @@ if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
 d(orig=Orig),
 %println(stderr,"% "++Orig)
 %println(stderr,"d(\""++Orig++"\"),"),
-%println(stderr,"d(\""++L.to_string()++"\"),"),
+println(stderr,"d(\""++L.to_string()++"\"),"),
 V=getvars(L2).compactvars
 ,d(v=V)
 ,varsdomaininit(L2,L2B,[$var(A1,B1):C1 in V,C1=[A1,B1],B1!=[]],VI)
@@ -530,7 +530,7 @@ p(not,S,R,T),S="~"++S2,p(logic,S2,R,T2)=>T=$aspic_not(T2).
 p(notampersand,S,R,T2),S=[A|S2],A!='&'=>p(notampersand,S2,R,T),T2=[A|T].
 p(notampersand,S,R,T),S=['&'|_]=>T="",R=S.
 
-p(logic,S,R,T2),paren(notampersand,"&","&",S,R,T)=>T2=T.
+p(logic,S,R,T2),paren(notampersand,"&","&",S,R,T)=>T2=[cond(X=='_',' ',X):X in T]. %hack
 p(logic,S,R,T),member(Op,[eq,ne,gt,lt,le,ge,not]),p(Op,S,R,T)=>true.
 p(logic,S,R,T),p(atom,S,R,T)=>true.
 p(logic,S,R,T),p(card,S,R,T)=>true.
@@ -587,6 +587,7 @@ p(rule,S,R,T),S=":-"++S2=>p(body,S2,R,T2),T=$aspic_not(T2),d(T).
 p(rule,S,R,T),p(head,S,":-"++S2,T1)=>p(body,S2,R,T2),T=$aspic_impl(T2,T1),d(T).
 p(rule,S,R,T),p(head,S,"<=>"++S2,T1)=>p(body,S2,R,T2),T=$aspic_equiv(T1,T2),d(T).
 p(rule,S,R,T),p(head,S,"."++R,T1)=>T=T1,d(T).
+p(rule,S,R,T)=>p(logic,S,"."++R,T).
 
 p(program,S,R,T),p(rule,S,S2,T1)=>p(program,S2,R,T2),T=[[T1,S[1..S.len-S2.len]]|T2].
 p(program,S,R,T)=>R=S,T=[].

@@ -94,6 +94,16 @@ color(netherlands,green)
 
 # Version history
 
+v0.3.3:
+
+- Friendlier value display for the fd variables 
+
+- Picat embedded code can be used in facts as well
+
+- New examples: towers of Hanoi, global constraints using embedded Picat
+  code.
+
+
 v0.3.2:
 
 - Fixes: proper handling of table-like facts e.g. p(1,2;3,8) ; added missing
