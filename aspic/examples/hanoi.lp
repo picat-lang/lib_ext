@@ -3,10 +3,8 @@
 
 p(1..3). %towers
 x(1..k). %discs
-i(1..k,1). %initial
-t(1..k,3). %targeted
-at(1,P,X):-i(X,P).
-:-t(X,P),not at(n,P,X).
+at(1,1,1..k). %initial
+:-not at(n,3,1..k). %final
 {at(T,P,X):p(P)}=1:-T=1..n,x(X).
 {move(T,P1,P2,X):p(P1),p(P2),at(T,P1,X),P1!=P2}=1:-T=1..n-1.
 at(T,P2,X):-T=2..n,p(P2),p(P),move(T-1,P,P2,X).

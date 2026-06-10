@@ -94,6 +94,11 @@ color(netherlands,green)
 
 # Version history
 
+v0.3.4:
+
+- Acceleration of the grounding at the expense of the readibility of the
+  generated Picat code.
+
 v0.3.3:
 
 - Friendlier value display for the fd variables 

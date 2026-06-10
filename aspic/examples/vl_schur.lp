@@ -4,8 +4,8 @@
 % order of the arguments changed, such that the partition is easier to get
 % from the solution
 
-#const n=13.
-#const r=3.
+#const n=45.
+#const r=4.
 
 % Partition {1 ,.. , n } into r sum - free subsets .
 % input : positive integers n , r .

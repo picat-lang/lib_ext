@@ -38,6 +38,11 @@ H.put(varnum,N2),
 Y=("ARANGE"++N2.to_string()).to_atom().
 
 noanon(X)=cond(X=="_",uniquevarname().to_string(),X).
+elimws([],_)=[].
+elimws(['&'|L],N)=['&'|elimws(L,1-N)].
+elimws([' '|L],0)=elimws(L,0).
+elimws([H|T],N)=[H|elimws(T,N)].
+elimws(L)=elimws(L,0).
 
 universe=L=>M=get_heap_map(asp_atoms),L=[Z:K in M.keys,K=$f(_,Y),Z in Y].remove_dups.
 
@@ -53,6 +58,14 @@ allvariants(T)=R,T=..[F|L]=>R=[Y: X in allvariants(L),Y=..[F|X]].
 joindomains([],X)=R=>R=X.
 joindomains(X,[])=R=>R=X.
 joindomains(X,Y)=R=>d(joindomains=(X,Y)),R=X.
+
+
+getdetvars(T)=R,functor(T,$set,_)=>R=[]. %stop at $set
+getdetvars(T)=R,functor(T,$valset,_)=>R=[]. %stop at $valset
+getdetvars(T)=R,functor(T,_,0)=>R=[].
+getdetvars(T)=R,T=$aspic_eq($var(X,_),_)=>R=[X].
+getdetvars(T)=R,T=$var(Z,D)=>R=[].
+getdetvars(T)=R,T=..L=>R=[Z:X in L,Y=getdetvars(X),Z in Y].
 
 getvars(T)=R,functor(T,$set,_)=>R=[]. %stop at $set
 getvars(T)=R,functor(T,$valset,_)=>R=[]. %stop at $valset
@@ -94,7 +107,7 @@ V=getsetvars(T).compactvars
 ,d(l11=L[1,1])
 ,R="([ASPIC_OPTCOND3:" ++ join([X[1].to_string()++" in "++cond(X[2]=[],"universe()",showrange(X[2])):X in V],',')
 ++cond(V!=[],"","_ in 1..1")
-++",ASPIC_OPTCOND1="++L[2].to_string()++",ASPIC_OPTCOND2#=ASPIC_OPTCOND1,ASPIC_AGVAL1="++L[1,1].to_string()++",ASPIC_AGVAL2#=ASPIC_AGVAL1,ASPIC_OPTCOND3#=cond(ASPIC_OPTCOND2,ASPIC_AGVAL2,0)])"
+++",ASPIC_OPTCOND1="++L[2].to_string()++",ASPIC_OPTCOND2#=ASPIC_OPTCOND1,ASPIC_AGVAL1= "++L[1,1].to_string()++",ASPIC_AGVAL2#=ASPIC_AGVAL1,ASPIC_OPTCOND3#=cond(ASPIC_OPTCOND2,ASPIC_AGVAL2,0)])"
 ,d(r=R)
 ,d(rsmini_done_for=T)
 .
@@ -173,14 +186,18 @@ learnranges(T,V)=>d(learnranges_warning=T).
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 translate_rules(T,Phase)=>
-foreach(L0 in T,L0=[L,Orig],L2 in allvariants(L))
-if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
+NR:=0
+,foreach(L0 in T,L0=[L,Orig],L2 in allvariants(L))
+NR:=NR+1
+,if(Phase==1,not(functor(L2,$aspic_not,_));Phase==2,functor(L2,$aspic_not,_))
 d(orig=Orig),
-%println(stderr,"% "++Orig)
+println(stderr,"% {"++NR.to_string()++"}\t"++Orig),
 %println(stderr,"d(\""++Orig++"\"),"),
-println(stderr,"d(\""++L.to_string()++"\"),"),
+println(stderr,"d(\""++"{"++NR.to_string()++"}\t"++L.to_string()++"\"),"),
 V=getvars(L2).compactvars
 ,d(v=V)
+,DV=getdetvars(L2).remove_dups
+,d(dv=DV)
 ,varsdomaininit(L2,L2B,[$var(A1,B1):C1 in V,C1=[A1,B1],B1!=[]],VI)
 ,d({l2b=L2B,vi=VI})
 ,V:=compactvars(VI,V)
@@ -189,15 +206,13 @@ V=getvars(L2).compactvars
 %,d(vi=VI)
 %,d(vars=V)
 %,println(stderr,"foreach(_ in 1..1)")
+%,V:=[V2:V2 in V,not(member(V2[1],DV))]
 ,if(V=[]) then
 %d(l2=L2),
 println(stderr,"aspic_holds("++replaceset(L2.replacesetmini.replaceaggregates).aspic_simplify.to_string()++")")
 ,println(stderr,",")
 else
-d(l2x=L2),
-foreach(V2 in V)
-println(stderr,"foreach("++V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2]))++")")
-end
+d(l2x=L2)
 ,L3=replacevars(V,[X[1]:X in V],L2).aspic_simplify
 ,d(v=V)
 ,learnranges(L3,V)
@@ -205,11 +220,28 @@ end
 ,L4=replaceset(L3.replacesetmini.replaceaggregates)
 ,d(l4=L4)
 ,L4:=L4.to_string()
-,println(stderr,"aspic_holds("++L4++"),")
-,foreach(V2 in V)
-println(stderr,"end")
-end
-,println(stderr,",")
+,d({v=V,dv=DV})
+,println(stderr,"_=[aspic_fholds("++L4++"):")
+,println(stderr,[V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2])):V2 in V].join(','))
+,println(stderr,"],")
+
+% foreach(V2 in V)
+% println(stderr,"foreach("++V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2]))++")")
+% end
+% ,L3=replacevars(V,[X[1]:X in V],L2).aspic_simplify
+% ,d(v=V)
+% ,learnranges(L3,V)
+% ,d(l3=L3)
+% ,L4=replaceset(L3.replacesetmini.replaceaggregates)
+% ,d(l4=L4)
+% ,L4:=L4.to_string()
+% ,println(stderr,"aspic_holds("++L4++"),")
+% ,foreach(V2 in V)
+% println(stderr,"end")
+% end
+% ,println(stderr,",")
+
+
 end
 end
 end
@@ -233,25 +265,27 @@ println(stderr,"aspic_stoplearning(),")
 ,println(stderr,"H=get_heap_map(aspic_atoms),\nforeach(ASPIC_ATOM in H.keys())\nif(not aspic_isfdvariable(ASPIC_ATOM))")
 ,println(stderr,"L=[]")
 ,foreach(L0 in T,L0=[L,Orig],L2 in allvariants(L))
-%d(orig=L)
+d(orig=L)
 ,V=getvars(L2).compactvars
 ,varsdomaininit(L2,L2B,[],VI)
 ,L2C=adddomaintovars(VI,L2B)
 ,L2:=L2C
-%,d(vi=VI)
-%,d(vars=V)
+,d(vi=VI)
+,d(vars=V)
 ,if(L2!=$aspic_impl(_,_),L2!=$aspic_not(_))
 L2:=$aspic_impl(1,L2)
 end
 ,if(L2=$aspic_impl(B,H)) then
 %println(stderr,"%completion "++Orig)
-%d(l2=L2)
-L2:=$aspic_impl($set(B),H)
-%,d(l2=L2)
+d(l2=L2)
+,d(h=H)
+,L2:=$aspic_impl($set(B),H)
+,d(l2=L2)
 ,V:=getvars(L2).compactvars
-%,d(v=V)
+,d(v=V)
 ,L3=replacevars(V,[X[1]:X in V],L2)
-%,d(l3=L3)
+%,L3=L2
+,d(l3=L3)
 ,L3=$aspic_impl(_,H2)
 ,[L4,V4]=replacesetsym(L3)
 ,L4:=L4.replacesetmini.replaceaggregates
@@ -261,15 +295,21 @@ L2:=$aspic_impl($set(B),H)
 %,d(b2=B2)
 %,d(h2=H2)
 ,H2C=getaspcompletionhead(H2)
-%,d(h2c=H2C)
+,d(h2c=H2C)
 ,V3=getvars(H2C).compactvars
+,d(v3=V3)
 ,H2C:=replacevars(V3,[X[1]:X in V3],H2C)
-%,d(h2=H2C)
+,d(h2c_again=H2C)
 ,H2C=[H3,C3]
-%,d({h3=H3,c3=C3,b2=B2})
-,L4:=aspic_disj([aspic_conj([B2]++C3)])
-%,d(l4=L4)
-,print(stderr,"++["++L4.aspic_simplify.to_string()++":_ in 1..1,ASPIC_ATOM=$"++H3.to_string())
+,d({h3=H3,c3=C3,b2=B2})
+,H3=..[H3H|LA]
+,NLA=[cond(NF>0,uniquevarname(),CA):CA in LA,functor(CA,_,NF)]
+,NLAS=[$aspic_eq(NLA[IXV],LA[IXV]):IXV in 1..LA.len,NLA[IXV]!==LA[IXV]]
+,L4:=aspic_disj([aspic_conj(NLAS++[B2]++C3)])
+,H3NLA=..[H3H|NLA]
+,d(l4=L4)
+,d(h3nla=H3NLA)
+,print(stderr,"++["++L4.aspic_simplify.to_string()++":_ in 1..1,ASPIC_ATOM=$"++H3NLA.to_string())
 ,foreach(V2 in V4)
 print(stderr,","++V2[1].to_string()++" in "++cond(V2[2]==[],"universe()",showrange(V2[2])))
 end
@@ -391,7 +431,8 @@ if(L[K..K+3]="not ") then % a hack
     L[K]:=' ',L[K+1]:=' ',L[K+2]:='~',L[K+3]:=' '
 end
 end
-,L:=[X:X in L,X!=' ',ord(X)>32]
+%,L:=[X:X in L,X!=' ',ord(X)>32]
+,L:=elimws(L)
 ,if(L!=[]) then
 % println(L),
 B:=[L|B]
@@ -404,8 +445,8 @@ end
 ,foreach((K,V2) in C) %substitute the constants
 %writeln(apply=(K,V2))
 ,foreach(J in 1..T.len)
-    T[J]:=replace(T[J],$const(K),V2)
-    ,T[J]:=replace(T[J],K,V2)
+    T[J,1]:=replace(T[J,1],$const(K),V2)
+    ,T[J,1]:=replace(T[J,1],K,V2) %too dangerous to replace as text
 end
 end
 ,ObjMin=Mini
@@ -530,7 +571,7 @@ p(not,S,R,T),S="~"++S2,p(logic,S2,R,T2)=>T=$aspic_not(T2).
 p(notampersand,S,R,T2),S=[A|S2],A!='&'=>p(notampersand,S2,R,T),T2=[A|T].
 p(notampersand,S,R,T),S=['&'|_]=>T="",R=S.
 
-p(logic,S,R,T2),paren(notampersand,"&","&",S,R,T)=>T2=[cond(X=='_',' ',X):X in T]. %hack
+p(logic,S,R,T2),paren(notampersand,"&","&",S,R,T)=>T2=T. 
 p(logic,S,R,T),member(Op,[eq,ne,gt,lt,le,ge,not]),p(Op,S,R,T)=>true.
 p(logic,S,R,T),p(atom,S,R,T)=>true.
 p(logic,S,R,T),p(card,S,R,T)=>true.

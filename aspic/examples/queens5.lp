@@ -7,7 +7,7 @@
 % 768   89.3 s
 % 1024 944.6 s
 
-#const n = 256.
+#const n = 128.
 
 
 % n-Queens encoding
