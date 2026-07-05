@@ -1,0 +1,1208 @@
+==============================
+PICAT COMPACT REFERENCE (v3.9#3)
+==============================
+
+========================================
+PART 1: LANGUAGE OVERVIEW
+========================================
+
+Picat: general-purpose language with pattern-matching, constraints, actors, tabling.
+Rules end with "." followed by whitespace/newline.
+Two rule types:
+  Head, Cond => Body.    (non-backtrackable; commitment, no backtrack)
+  Head, Cond ?=> Body.   (backtrackable; backtracks to try next rule if Body fails)
+Horn clauses: Head :- Body.   (converted to backtrackable rules)
+DCG rules: Head --> Body.     (converted to pattern-matching rules)
+Functions: defined with non-backtrackable rules only; head is equation F(...)=X.
+Function facts: f(t1,...,tn)=Exp  (shorthand for f(t1,...,tn)=X => X=Exp)
+Index declaration (for Horn clauses): index (+,-) (-,+).  + = indexed, - = not indexed.
+Private definitions: keyword "private" before definitions hides them from other modules.
+Table declaration: "table" before first rule.  Mode-directed: table(+,+,min) etc.
+
+Comments: % to end of line; /* ... */ block comments.
+
+----------------------------------------
+STARTUP / COMMAND LINE
+----------------------------------------
+picat               start interpreter
+picat -d            start in debug mode
+picat -g Goal       execute Goal instead of main
+picat -log          print log/warning info
+picat -path Dirs    set PICATPATH (semicolon-separated, double-quoted)
+picat -s Size       reserve Size words for stack/heap
+picat --help        help
+picat --v/--version version
+picat File Args...  run File (with .pi optional); main/0 or main/1
+                    if args after file: main/1 gets list of strings
+
+Interpreter commands: help, halt/exit (or ctrl-d), cl(File), load(File),
+compile(File), cl (from console, end with ctrl-z/ctrl-d).
+
+----------------------------------------
+MODULES
+----------------------------------------
+module Name.          must match filename
+import M1,...,Mn.     import modules
+include "file".       verbatim include (no module/import in included files)
+Default imported modules: basic, io, math, sys.
+Module qualifier: M.f(args) calls f from module M.  M must be imported.
+Binding order for normal calls: basic,math,io,sys -> enclosing -> imported(in order) -> global.
+Binding order for higher-order calls: basic,math,io,sys -> loaded_modules(excl builtins) -> global.
+Reserved module names: basic,bp,cp,datetime,glb,io,math,mip,nn,ordset,os,planner,sat,smt,sys,util.
+
+========================================
+PART 2: DATA TYPES
+========================================
+
+Variables: start with uppercase or underscore. _ is anonymous (each _ is distinct).
+  single-assignment.  var(T)/nonvar(T) test free/non-free.
+  attr_var(T): attributed variable test.  dvar(T): domain variable test.
+  bool_dvar(T): boolean domain variable test.  dvar_or_int(T).
+Attributed variables: put_attr(X,Key,Val), put_attr(X,Key) [=put_attr(X,Key,not_a_value)],
+  get_attr(X,Key)=Val [throws if missing], get_attr(X,Key,Default)=Val.
+
+Integers: decimal (12_345), binary (0b100), octal (0o73), hex (0xf7). Underscore separators ok.
+Reals: 12.345, 0.123, 1.0e8, 12-e10, 0.12E10. Must have . or exponent to be real.
+
+Atoms: lowercase-start identifier, or 'quoted'. Max 1000 chars. \ is escape char.
+Strings: lists of single-char atoms. "hello" = [h,e,l,l,o].
+Structures: $s(t1,...,tn).  $ distinguishes from function call.  name(S)=name, arity(S)=arity.
+Arrays: {t1,...,tn}. Special structure named '{}'. Constant-time access, length stored.
+  new_array(D1,...,Dn) creates n-dim array (max 10 dims).
+Maps: hash-table of key-value pairs. new_map(S), new_map(N,S), new_map().
+  put(Map,Key,Val), put(Map,Key), get(Map,Key)=Val, get(Map,Key,Default)=Val,
+  has_key(Map,Key), del(Map,Key), clear(Map), keys(Map)=List, values(Map)=List,
+  map_to_list(Map)=Pairs, size(Map)=Size, map(T) test.
+Sets: new_set(S), new_set(N,S). Special maps where every key->not_a_value.
+Heaps: min-heap or max-heap, represented as arrays.
+  new_min_heap(IntOrList), new_max_heap(IntOrList),
+  heap_is_empty(H), heap_pop(H)=Elm, heap_push(H,Elm), heap_size(H)=Size,
+  heap_to_list(H)=List, heap_top(H)=Elm.
+
+Index notation: X[I] returns Ith component (1-based). X[L..U] returns sublist.
+  Multi-dim: X[I,J] = (X[I])[J].  X[I] must be integer or integer range.
+
+List comprehension: [T : E1 in D1, Cond1, ..., En in Dn, Condn]
+  T=expression, Ei=iterating pattern, Di=compound value, Condi=optional condition.
+  For each tuple of values satisfying conditions, T is added to the list.
+Array comprehension: {T : E1 in D1, Cond1, ..., En in Dn, Condn}
+  = to_array(list comprehension).
+
+OOP notation: A.f(A2,...,Ak) = f(A,A2,...,Ak) unless A is atom (then module qualifier).
+  A.f = A.f() = get(A,f).  Left-associative: X.f().g() = g(f(X)).
+  Functions in dot notation always evaluated eagerly.
+
+Ranges: From..To = [From,From+1,...,To].  From..Step..To = [From,From+Step,...,To].
+
+========================================
+PART 3: OPERATORS (by precedence, highest to lowest)
+========================================
+
+.  @                              (dot, as-pattern)
+**                                (right-assoc, power)
+unary+  unary-  ~                 (sign, bitwise complement)
+*  /  //  /<  />  div  mod  rem    (mult, div, int-div variants)
+binary+  binary-                  (add, subtract)
+>>  <<                             (right/left shift)
+/\                                (bitwise and)
+^                                 (bitwise xor)
+\/                                (bitwise or)
+..                                (range; right-assoc for ++)
+++                                (right-assoc, concatenation)
+=  !=  :=  ==  !==  =:=  <  =<  <=  >  >=  ::  in  notin  =..
+  #=  #!=  #<  #=<  #<=  #>  #>=  @<  @=<  @<=  @>  @>=
+#~                                (bitwise not for constraints)
+#/\                               (constraint and)
+#^                                (constraint xor)
+#\/                               (constraint or)
+#=>                               (right-assoc, constraint implies)
+#<=>                              (constraint iff)
+not  once  \+                     (negation, once)
+,  &&                             (right-assoc, conjunction)
+;  ||                             (right-assoc, disjunction)
+
+Arithmetic: + - * / // /< /> div mod rem ** >> << /\ ^ \/
+  /  = real division.  // = truncated integer division.
+  /> = ceiling division.  /< = floor division.
+  div = floored division.  mod = X - floor(X div Y)*Y.  rem = X - (X//Y)*Y.
+  =:=  pretty-much-equal (numerically; 1 =:= 1.0 succeeds, 1 == 1.0 fails).
+  =\=  not numerically equal.
+
+Term ordering: var < number < atom < structure/array < list/string.
+  @< @=< @<= @> @>=  (term comparison operators)
+
+========================================
+PART 4: BUILT-INS - basic module (imported by default)
+========================================
+
+--- Equality/Unification ---
+T1 = T2    unification
+T1 != T2   not unifiable
+T1 == T2   identical (structural equality)
+T1 !== T2  not identical
+T1 =:= T2  numerically equal (within 0.00000001)
+T1 =\= T2  not numerically equal
+T1 is T2   if T1 var: bind to eval(T2); if T1 non-var: T1=:=T2
+bind_vars(Term,Val)  bind all vars in Term to Val
+compare_terms(T1,T2)=Res  -1/0/1
+different_terms(T1,T2)  disequality constraint (suspended until instantiated)
+subsumes(T1,T2)  true if T1 subsumes T2
+variant(T1,T2)  true if T2 is a variant of T1
+ground(T)  true if T has no variables
+vars(T)=List  list of variables in T
+
+--- Type tests ---
+var(T), nonvar(T), attr_var(T), dvar(T), bool_dvar(T), dvar_or_int(T)
+atom(T), atomic(T) (atom or number), integer(T)/int(T), float(T)/real(T)
+number(T), bigint(T), list(T), struct(T), array(T), map(T), string(T)
+char(T) (single-char atom), digit(T) (single-digit atom)
+compound(T) (list or structure)
+ascii_alpha(T), ascii_alpha_digit(T), ascii_digit(T)
+ascii_lowercase(T), ascii_uppercase(T)
+
+--- Term operations ---
+copy_term(T1)=T2  copy with fresh vars (no attributes)
+copy_term_shallow(T1)=T2  shallow copy skeleton
+hash_code(T)=Code  (0 if T is var)
+to_codes(T)=Codes  list of char codes
+to_fstring(Fmt,Args...)=String  formatted string (max 10 args)
+to_string(T)=String
+to_binary_string(Int)=String
+to_hex_string(Int)=String
+to_oct_string(Int)=String
+to_radix_string(Int,Base)=String  (2<=Base<=36)
+parse_radix_string(String,Base)=Int
+to_int(ANS)=Int  (number->truncate, digit char->ord-48, string->parse)
+to_integer(ANS)=Int  same as to_int
+to_number(ANS)=Num  (number->itself, digit->ord-48, string->parse)
+to_float(NS)=Real  (=NS*1.0 if number, =parse_term(NS) if string)
+to_real(NS)=Real  same as to_float
+to_atom(String)=Atom
+to_list(Struct)=List  list of components
+to_array(List)=Array
+T =.. L  univ: name+args <-> list.  functor(T,F,N).  arg(I,T,A).
+name(Struct)=Name.  arity(Struct)=Arity.  len(T)=Len (overloaded: atom/array/list/struct).
+length(T)=Len  same as len.
+new_struct(Name,IntOrList)=Struct  (Int=N free vars, or list of components)
+new_list(N)=List  (N free vars)
+new_list(N,InitVal)=List  (N copies of InitVal)
+second(Compound)=Term  second argument
+
+--- Numbers ---
+between(From,To,X)  nondet: X in From..To (step 1)
+between(From,Step,To,X)  nondet: X in From..Step..To
+max(X,Y)=Val, min(X,Y)=Val  (terms)
+maxint_small()=Int, minint_small()=Int
+ord(Char)=Int  code point of char
+chr(Code)=Char  char from code point
+number_chars(Num)=String  (=%d if int, %f if real)
+number_codes(Num)=List
+
+--- Lists ---
+L1 ++ L2  concatenation (also for arrays)
+append(X,Y,Z)  nondet: append Y to X gives Z
+append(W,X,Y,Z)  append(W,X,WX), append(WX,Y,Z)
+avg(List)=Val  average
+delete(List,X)=ResList  delete first occurrence of X
+delete_all(List,X)=ResList  delete all occurrences of X
+first(List)=Term  first element
+flatten(List)=ResList  flatten nested lists
+head(List)=Term  first element (=car)
+last(List)=Term  last element
+insert(List,Index,Elm)=ResList  insert Elm at Index
+insert_all(List,Index,AList)=ResList  insert all of AList at Index
+insert_ordered(List,Term)=R  insert into sorted list (ascending)
+insert_ordered_down(List,Term)=R  insert into descending sorted list
+member(Term,List)  nondet: true if Term in List
+membchk(Term,List)  true if Term in List (deterministic)
+new_list(N)=List, new_list(N,InitVal)=List
+nth(Index,List,Elem)  nondet: Elem is Indexth element (1-based)
+prod(List)=Val  product of elements
+reverse(List)=ResList
+select(X,List,ResList)  nondet: select X from List, ResList=remainder
+sort(List)=SList  ascending
+sort(List,KeyIndex)=SList  sort by KeyIndex
+sort_remove_dups(List)=SList  ascending, remove dups
+sort_remove_dups(List,KeyIndex)=SList
+sort_down(List)=SList  descending
+sort_down(List,KeyIndex)=SList
+sort_down_remove_dups(List)=SList
+sort_down_remove_dups(List,KeyIndex)=SList
+slice(List,From,To)=SList  sublist From..To (From>=1)
+slice(List,From)=SList  = slice(List,From,List.length)
+sum(List)=Val
+tail(List)=Term  rest of list (=cdr)
+zip(L1,L2,...,Ln)=List  list of array-tuples {(E1j,...,Enj)} (n=2,3,4)
+
+--- Strings ---
+string(T)  test
+to_lowercase(String)=LString
+to_uppercase(String)=UString
+(All list built-ins also work on strings)
+
+--- Arrays ---
+array(T)  test
+new_array(D1,...,Dn)=Arr  (max 10 dims)
+Overloaded from lists: ++, avg, first, last, len, length, max, min, nth, prod,
+  reverse, slice, sort, sort(KeyIndex), sort_remove_dups, sort_remove_dups(KeyIndex),
+  sort_down, sort_down(KeyIndex), sort_down_remove_dups, sort_down_remove_dups(KeyIndex)
+Note: array length stored in memory; list length recomputed each time.
+
+--- Maps ---
+new_map(IntOrPairsList)=Map, new_map(N,PairsList)=Map, new_map()=Map
+put(Map,Key,Val), put(Map,Key) [=put(Map,Key,not_a_value)]
+get(Map,Key)=Val [throws if missing], get(Map,Key,Default)=Val
+has_key(Map,Key), del(Map,Key), clear(Map)
+keys(Map)=List, values(Map)=List, map_to_list(Map)=PairsList, size(Map)=Size
+map(T) test.  Most map built-ins also work on attributed variables.
+
+--- Sets ---
+new_set(IntOrKeysList)=Set, new_set(N,KeysList)=Set
+A set is a map where every key maps to not_a_value.
+
+--- Heaps ---
+new_min_heap(IntOrList)=Heap, new_max_heap(IntOrList)=Heap
+heap_is_empty(H), heap_pop(H)=Elm, heap_push(H,Elm), heap_size(H)=Size,
+heap_to_list(H)=List, heap_top(H)=Elm
+
+--- Prebuilt Maps ---
+get_heap_map(ID)=Map  (heap map; changes undone on backtrack; unlimited count)
+get_heap_map()=Map  (default ID)
+get_global_map(ID)=Map  (global; NOT undone on backtrack; max 97)
+get_global_map()=Map
+get_table_map(ID)=Map  (table area; NOT undone; hash-consed; max 97)
+get_table_map()=Map
+ID must be ground term.  Discouraged in tabled programs.
+
+--- Higher-order ---
+call(S,Arg1,...,Argn)  call predicate named S
+apply(S,Arg1,...,Argn)=Val  call function named S, returns value
+findall(Template,Call)=List  all solutions of Call as Template
+find_all(Template,Call)=List  same as findall
+count_all(Call)=Count  number of solutions
+freeze(X,Call)  delay Call until X is non-var
+call_cleanup(Call,Cleanup)  Cleanup runs when Call succeeds det, fails, or throws
+catch(Goal,Exception,Handler)  catch exception matching Exception
+maxof(Call,Objective)  find solution maximizing Objective (restart search)
+maxof(Call,Objective,ReportCall)
+maxof_inc(Call,Objective)  same but incremental
+maxof_inc(Call,Objective,ReportCall)
+minof(Call,Objective), minof(Call,Objective,ReportCall)
+minof_inc(Call,Objective), minof_inc(Call,Objective,ReportCall)
+not(Call)  negation (never instantiates vars, succeeds at most once)
+once(Call)  like Call but at most one solution
+\+ Call  same as not(Call)
+repeat  nondet: always succeeds (repeat ?=> true. repeat => repeat.)
+time(Call)  execute Call, report CPU time (sys module)
+time2(Call)  execute Call, report CPU time and backtracks (sys module)
+time_out(Call,Limit,Result)  like once(Call) but with time limit (ms) (sys module)
+  Result unified with time_out or success
+map(FuncOrList,ListOrFunc)=ResList  apply func to each element
+map(Func,List1,List2)=ResList  apply func to each pair
+reduce(Func,List)=Res  reduce list with binary func
+reduce(Func,List,InitVal)=Res  = reduce(Func,[InitVal|List])
+
+--- Other basic built-ins ---
+acyclic_term(T)  true if T is acyclic
+and_to_list(Conj)=List  (a,b,...) -> [a,b,...]
+list_to_and(List)=Conj  [a,b,...] -> (a,b,...)
+number_vars(T)  number vars in T starting from 0
+number_vars(T,N0)=N1  number vars from N0, return next available
+parse_term(String)=Term  parse string to term
+parse_term(String,Term,Vars)  parse, Vars=[Name=Var,...]
+throw(Exception)  throw exception
+true, fail/false
+
+========================================
+PART 5: PREDICATES, FUNCTIONS, PATTERNS, GOALS
+========================================
+
+--- Pattern matching ---
+Pattern p(t1,...,tn) same form as structure. No function calls, index/dot notation,
+  ranges, array/list comprehensions in patterns.
+As-patterns: V@Pattern.  V is new var; Pattern is non-var term.
+  After matching, V references the matched term.  Avoids re-constructing terms.
+Matching: T matches P if P identical to T or P can be made identical by instantiating P's vars.
+  Vars in T are NOT instantiated by matching.
+  Pred call fails if no rule matches.  Function call throws exception.
+
+--- Goals ---
+true, fail/false
+p(t1,...,tn)  predicate call
+P, Q  conjunction (P && Q is same)
+P; Q  disjunction (P || Q is same)
+not P  negation; \+ P is same
+once P  at most one solution
+if (Cond1) Goal1 elseif (Cond2) Goal2 ... else GoalN end
+  (elseif/else optional; missing else = else true; if Cond not in parens, must use "then")
+throw Exception
+!  cut: removes choice points of goals to the left
+foreach/while/do-while loops (see Part 6)
+
+--- Tail recursion ---
+Last-call optimization: last call reuses stack frame if not protected by choice points.
+Accumulator technique for converting to tail recursion.
+
+========================================
+PART 6: ASSIGNMENTS AND LOOPS
+========================================
+
+--- Assignment ---
+LHS := RHS  where LHS is variable or X[...] access.
+  X := X+1 compiles to X1=X+1 (new var each assignment).
+  Assignment to X[I] updates component; undone on backtrack.
+
+--- Foreach loop ---
+foreach (E1 in D1, Cond1, ..., En in Dn, Condn)
+    Goal
+end
+  Ei = iterating pattern, Di = compound value, Condi = optional condition.
+  break(Cond) terminates iterator when Cond is true (body NOT executed when Cond true).
+  Multiple iterators = nested loops (every combination).
+  Variables only in loop = local to each iteration.
+  Variables in outer loop = visible in inner loop.
+
+--- While loop ---
+while (Cond)
+    Goal
+end
+  Repeats Goal while Cond succeeds.
+
+--- Do-while loop ---
+do
+    Goal
+while (Cond)
+  Executes Goal once before testing Cond.
+
+--- List/Array comprehension ---
+[T : E1 in D1, Cond1, ..., En in Dn, Condn]
+  T=expression, Ei=iterating pattern, Di=compound value, Condi=optional condition.
+  For each tuple satisfying conditions, T added to list.
+{T : E1 in D1, Cond1, ..., En in Dn, Condn}
+  = to_array(list comprehension).
+
+--- Loop scoping ---
+Variables only in loop body (not before loop) = local to each iteration.
+Variables before loop = global to loop (visible in body).
+findall also forms a name scope (local vars not visible outside).
+To make a variable global in a loop/comprehension, use it before the loop (e.g., Y=Y).
+
+--- Compilation of loops ---
+Loops compiled to tail-recursive predicates.
+Variables modified in loop and used after = passed as in/out args to generated predicate.
+List comprehensions compiled to foreach loops, then to tail-recursive predicates.
+
+========================================
+PART 7: TABLING
+========================================
+
+table  (keyword before first rule)
+  Tables all calls/answers of predicate/function. Prevents infinite loops and redundancy.
+Mode-directed tabling: table(M1,...,Mn)
+  + = input, - = output, max = maximize (first best only), min = minimize (first best only),
+  mmax = maximize (all best), mmin = minimize (all best), nt = not tabled (last arg only).
+  Input args assumed ground; output args assumed variables.
+  Only one objective argument allowed (can be compound).
+  compare_terms used to compare answers.
+initialize_table  clears table area.
+
+========================================
+PART 8: CONSTRAINTS (modules cp, sat, smt, mip)
+========================================
+
+Import a solver: import cp. / import sat. / import smt. / import mip.
+All four modules share same interface on integer-domain variables.
+mip also supports real-domain variables (domain = L..U with real L,U).
+mip requires Gurobi, CBC, or GLPK. smt requires Z3 or CVC4.
+sat also supports bit-vector constraints.
+
+--- Domain variables ---
+Vars :: Exp  restrict domains (Exp=list of ints for int vars; L..U for real vars in mip)
+  Vars can be single var or collection (list/array, possibly nested).
+Vars notin Exp  exclude values (not for real vars)
+new_dvar()=FDVar  new var with default domain
+  Default domain: -72057594037927935..72057594037927935 (64-bit), -268435455..268435455 (32-bit)
+fd_vector_min_max(Min,Max)  set/get bit-vector range (default -3200..3200)
+fd_degree(FDVar)=Degree  (cp only)
+fd_disjoint(FDVar1,FDVar2)
+fd_dom(FDVar)=List  domain as list
+fd_false(FDVar,Elm)  Elm not in domain
+fd_max(FDVar)=Max  upper bound
+fd_min(FDVar)=Min  lower bound
+fd_min_max(FDVar,Min,Max)  bind both bounds
+fd_next(FDVar,Elm)=NextElm  next element in domain after Elm
+fd_prev(FDVar,Elm)=PrevElm  previous element in domain before Elm
+fd_set_false(FDVar,Elm)  exclude Elm from domain (cp only)
+fd_size(FDVar)=Size  domain size
+fd_true(FDVar,Elm)  Elm in domain
+
+--- Table constraints ---
+table_in(DVars,R)  positive: DVars (tuple or list of tuples) must be in R (list of tuples)
+  Tuples: {a1,...,an}.  * = don't-care.
+table_notin(DVars,R)  negative: DVars must NOT be in R
+
+--- Arithmetic constraints ---
+Exp1 Rel Exp2  where Rel in: #= #!= #< #=< #<= #> #>=
+  #=< and #<= are same (less than or equal)
+Allowed in constraint expressions: +,-,*,/,//,count,div,mod,**,abs,min,max,sum
+  Also: cond(BoolConstr,ThenExp,ElseExp), count(V,Collection), max(Collection),
+  max(Exp1,Exp2), min(Collection), min(Exp1,Exp2), prod(Collection), sum(Collection)
+  Index notations, array/list comprehensions interpreted as function calls.
+  Dot notation should NOT be used in constraint expressions (evaluated eagerly).
+  Constraint in arithmetic expr evaluates to 1 (satisfied) or 0 (not).
+
+--- Boolean constraints ---
+#~ BoolExp                     not
+BoolExp1 #/\ BoolExp2          and
+BoolExp1 #^ BoolExp2           xor
+BoolExp1 #\/ BoolExp2          or
+BoolExp1 #=> BoolExp2          implies (right-assoc)
+BoolExp1 #<=> BoolExp2         iff
+BoolExp = 0|1|boolvar|arithconstr|domainconstr|boolconstr
+Precedence: #~ > #/\ > #^ > #\/ > #=> > #<=>  (all lower than arith constraints)
+
+--- Global constraints ---
+acyclic(Vs,Es)  undirected graph (Vs=[{V,B},...], Es=[{V1,V2,B},...]) acyclic
+acyclic_d(Vs,Es)  directed graph acyclic
+all_different(FDVars)  all pairs different
+all_distinct(FDVars)  like all_different but higher consistency (cp)
+all_different_except_0(FDVars)  non-zero values all different
+assignment(FDVars1,FDVars2)  dual assignment (if FDVars1[i]=j then FDVars2[j]=i)
+at_least(N,L,V)  at least N elements of L equal V
+at_most(N,L,V)  at most N elements of L equal V
+circuit(FDVars)  Hamiltonian cycle: X1..Xn, 1->v1,...,n->vn forms single cycle
+count(V,FDVars,Rel,N)  count of V in FDVars Rel N (Rel in #=,#!=,#>,#>=,#<,#=<,#<=)
+count(V,FDVars,N)  = count(V,FDVars,#=,N)
+cumulative(Starts,Durations,Resources,Limit)  scheduling constraint
+decreasing(L)  non-strictly decreasing
+decreasing_strict(L)  strictly decreasing
+diffn(RectangleList)  no two rectangles overlap (rect=[X1,...,Xn,S1,...,Sn])
+disjunctive_tasks(Tasks)  non-overlapping tasks (disj_tasks(S1,D1,S2,D2))
+element(I,List,V)  Ith element of List is V
+element0(I,List,V)  same, 0-based indexing
+exactly(N,L,V)  exactly N elements of L equal V
+global_cardinality(List,Pairs)  each elem of List equals some key; count constraints
+hcp(Vs,Es)  directed Hamiltonian cycle
+hcp(Vs,Es,K)  same + K vertices
+hcp_grid(A)  grid graph (2D bool array) forms Hamiltonian cycle
+hcp_grid(A,Es)  same + restrict edges to Es
+hcp_grid(A,Es,K)  same + K vertices
+increasing(L)  non-strictly increasing
+increasing_strict(L)  strictly increasing
+lex_le(L1,L2)  L1 lexicographically <= L2
+lex_lt(L1,L2)  L1 lexicographically < L2
+matrix_element(Matrix,I,J,V)  Matrix[I,J]=V (1-based)
+matrix_element0(Matrix,I,J,V)  same, 0-based
+neqs(NeqList)  conjunction of inequality constraints (extracts all_distinct)
+nvalue(N,List)  number of distinct values in List is N
+path(Vs,Es,Src,Dest)  undirected path from Src to Dest
+path_d(Vs,Es,Src,Dest)  directed path
+regular(L,Q,S,M,Q0,F)  regular constraint: L accepted by automaton
+  Q states (1..Q), input 1..S, transition matrix M, initial Q0, accepting states F
+  M: 1..Q x 1..S -> 0..Q (0=error). DFA: M entries are int. NFA: entries can be lists.
+scalar_product(A,X,Product)  A·X = Product
+scalar_product(A,X,Rel,Product)  A·X Rel Product (Rel in #=,#!=,#>=,#>,#=<,#<=,#<)
+scc(Vs,Es)  undirected strongly connected
+scc(Vs,Es,K)  same + K vertices
+scc_d(Vs,Es)  directed strongly connected
+scc_d(Vs,Es,K)  same + K vertices
+scc_grid(A)  grid graph strongly connected (undirected)
+scc_grid(A,K)  same + K vertices
+serialized(Starts,Durations)  = cumulative(Starts,Durations,Os,1) where Os all 1s
+subcircuit(FDVars)  like circuit but not all vertices required (X[i]=i => not in circuit)
+subcircuit_grid(A)  grid Hamiltonian cycle, non-zero cells are vertices
+subcircuit_grid(A,K)  same + K vertices
+tree(Vs,Es)  undirected tree
+tree(Vs,Es,K)  same + K vertices
+
+--- Bit-vector constraints (sat only) ---
+bv_add(A,B,C), bv_and(A,B,C), bv_div(A,B,C), bv_drop(A,N), bv_eq(A,B),
+bv_ge(A,B), bv_gt(A,B), bv_mod(A,B,C), bv_mul(A,B,C), bv_neq(A,B),
+bv_or(A,B,C), bv_pow(A,B,C), bv_sum(As,B), bv_take(A,N), bv_to_int(A),
+bv_xor(A,B,C), int_to_bv(C), new_bv(N)
+  Bit vector = array, V[1]=LSB, V[N]=MSB.  Non-negative int auto-converted.
+
+--- Solver invocation ---
+solve(Opts,Vars)  label Vars with options Opts (backtracks for multiple solutions)
+solve(Vars)  = solve([],Vars)
+  cp allows incremental labeling; sat/mip do not.
+solve_all(Opts,Vars)=Solutions  all solutions
+solve_all(Vars)=Solutions  = solve_all([],Vars)
+solve_suspended(Opts)  label remaining vars in suspended constraints (cp only)
+solve_suspended  = solve_suspended([])
+indomain(Var)  = solve([],[Var]) (cp only)
+indomain_down(Var)  = solve([down],[Var]) (cp only)
+
+--- Common solving options (all solvers) ---
+$limit(N)  search up to N solutions
+$max(Var)  maximize Var
+$min(Var)  minimize Var
+$report(Call)  execute Call on each better answer (not for mip)
+
+--- cp options ---
+backward, constr, degree, down, ff, ffc, ffd, forward, inout,
+label(CallName), leftmost(=forward), max, min, rand, rand_var, rand_val,
+reverse_split, split, updown
+
+--- sat options ---
+dump, dump(File), seq, split(default), $nvars(NVars), $ncls(NCls)
+
+--- mip options ---
+cbc, dump, dump(File), glpk, gurobi, scip
+
+--- smt options ---
+cvc4, dump, dump(File), logic(Logic), tmp(File), z3(default)
+  Default logic: LIA for Z3, NIA for CVC4.
+
+========================================
+PART 9: ACTORS AND ACTION RULES
+========================================
+
+Action rule: Head, Cond, {Event} => Body
+  Head = actor pattern, Cond = optional condition, Event = event patterns, Body = action.
+  Predicates for actors cannot contain backtrackable rules.
+  Conditions must be conjunctions of inline test predicates (type checks, comparisons).
+  For each activation, only first applicable rule is applied.
+  If action rule applied: actor suspended after body (waits for more events).
+  If normal non-backtrackable rule applied: actor vanishes after body.
+  Actor fails if no applicable rule or body fails. Body cannot succeed more than once.
+
+Event channels: attributed variables with 4 ports: ins, bound, dom, any.
+  Events queued; handled when entering/exiting non-inline predicate/function.
+  Inline predicates (X=Y) and functions (X+Y) never interrupted by events.
+
+Event patterns:
+  event(X,T)  attach to dom-port of vars in X; T=event term (must be new var)
+  ins(X)  attach to ins-port; activated when X instantiated
+  bound(X)  attach to bound-port; activated when domain bound changes
+  dom(X)  attach to dom-port; activated when inner value excluded from domain
+  dom(X,E)  same but E=excluded value (E must be new var)
+  dom_any(X)  attach to any-port; activated when any value excluded
+  dom_any(X,E)  same but E=excluded value
+  atom "generated" in Event: actor suspended AFTER body (not before)
+
+post_event(X,T)  = post_event_dom(X,T)
+post_event_ins(X)  post to ins-port of X
+post_event_bound(X)  post to bound-port of X
+post_event_dom(X,T)  post term T to dom-port of X
+post_event_any(X,T)  post event T to any-port of X
+
+freeze(X,Goal)  = once Goal, but delayed until X bound to non-var.
+  Defined as: freeze(X,Goal), var(X), {ins(X)} => true.
+                freeze(X,Goal) => call(Goal).
+
+========================================
+PART 10: EXCEPTIONS
+========================================
+
+throw(Exception)  throw Exception
+catch(Goal,Exception,Handler)  catch exception matching Exception; undo bindings in Goal
+call_cleanup(Call,Cleanup)  Cleanup runs when Call succeeds det, fails, or throws
+
+Built-in exceptions:
+  zero_divisor(Source)
+  domain_error(Val,Source)
+  existence_error(Entity,Source)
+  interrupt(Source)  (e.g., interrupt(keyboard) for ctrl-c)
+  io_error(ENo,EMsg,Source)
+  load_error(FName,Source)
+  out_of_memory(Area)  (stack_heap, trail, program, table, findall)
+  out_of_bound(EIndex,Source)
+  syntax_error(String,Source)
+  unresolved_function_call(FCall)
+  Type_expected(EArg,Source)  (Type: var,nonvar,dvar,atom,integer,real,number,list,map,...)
+
+========================================
+PART 11: THE planner MODULE
+========================================
+
+import planner.
+
+User must define:
+  final(S)  true if S is a final state
+  final(S,Plan,Cost)  final state reachable; default: Plan=[],Cost=0,final(S)
+  action(S,NextS,Action,ActionCost)  state S -> NextS by Action with cost ActionCost
+Optional:
+  heuristic(S)=Est  admissible estimate (never exceeds real cost)
+  sequence(P,Action)  bind Action based on partial plan P (actions reversed)
+
+Depth-bounded search:
+  plan(S,Limit,Plan,Cost)  plan with Cost<=Limit
+  plan(S,Limit,Plan)  if Limit is integer: same as plan/4 without Cost
+  plan(S,Plan,Cost)  if second arg is var: limit=268435455
+  plan(S,Plan)  limit=268435455, no Cost
+  best_plan(S,Limit,Plan,Cost)  optimal plan via iterative deepening+binary search
+  best_plan(S,Limit,Plan) / best_plan(S,Plan,Cost) / best_plan(S,Plan)
+  best_plan_bb(S,Limit,Plan,Cost)  optimal via branch-and-bound
+  best_plan_bb(S,Limit,Plan) / best_plan_bb(S,Plan,Cost) / best_plan_bb(S,Plan)
+  best_plan_bin(S,Limit,Plan,Cost)  optimal via branch-and-bound+binary search
+  best_plan_bin(S,Limit,Plan) / best_plan_bin(S,Plan,Cost) / best_plan_bin(S,Plan)
+
+Depth-unbounded search (failed states never re-explored):
+  best_plan_nondet(S,Limit,Plan,Cost)  like best_plan but multiple best plans via backtracking
+  best_plan_nondet(S,Limit,Plan) / best_plan_nondet(S,Plan,Cost) / best_plan_nondet(S,Plan)
+  plan_unbounded(S,Limit,Plan,Cost)
+  plan_unbounded(S,Limit,Plan) / plan_unbounded(S,Plan,Cost) / plan_unbounded(S,Plan)
+  best_plan_unbounded(S,Limit,Plan,Cost)
+  best_plan_unbounded(S,Limit,Plan) / best_plan_unbounded(S,Plan,Cost) / best_plan_unbounded(S,Plan)
+
+current_resource()=Amount  current available resource (268435455 if not in bounded search)
+current_plan()=Plan  current plan from initial to current state
+current_resource_plan_cost(Amount,Plan,Cost)  retrieve current node attributes
+is_tabled_state(S)  true if S explored and tabled
+
+========================================
+PART 12: I/O MODULE (io, imported by default)
+========================================
+
+--- File descriptors ---
+stdin, stdout, stderr  standard streams
+
+--- Opening ---
+open(Name)=FD  open for reading (default mode)
+open(Name,Mode)=FD  Mode: read, write, append
+
+--- Reading ---
+read_int(FD)=Int / read_int()  read integer (throws input_mismatch if EOF or not int)
+read_real(FD)=Real / read_real()
+read_char(FD)=Val / read_char()  single UTF-8 char; returns end_of_file at EOF
+read_char(FD,N)=String  up to N chars
+read_char_code(FD)=Val / read_char_code()  code point; -1 at EOF
+read_char_code(FD,N)=List  up to N code points
+read_picat_token(FD,TokenType,TokenValue)  read one token
+  TokenType: atom,end_of_file,end_of_rule,integer,punctuation,real,string,underscore,var
+read_picat_token(TokenType,TokenValue)  from stdin
+read_picat_token(FD)=TokenValue / read_picat_token()=TokenValue
+read_term(FD)=Term / read_term()  read Picat term (terminated by . + whitespace)
+read_line(FD)=String / read_line()  read until newline (newline not included)
+readln(FD)=String / readln()  same as read_line
+read_byte(FD)=Val / read_byte()  read single byte
+read_byte(FD,N)=List  up to N bytes
+read_file_bytes(File)=List / read_file_bytes()  entire file as byte list
+read_file_chars(File)=String / read_file_chars()  entire file as char string
+read_file_codes(File)=List / read_file_codes()  entire file as code point list
+read_file_lines(File)=Lines / read_file_lines()  entire file as list of line strings
+read_file_terms(File)=Lines / read_file_terms()  entire file as list of terms
+at_end_of_stream(FD)  true if FD at end of file
+peek_char(FD)=Val  peek next char without advancing
+peek_byte(FD)=Val  peek next byte without advancing
+EOF handling: single-value functions return end_of_file atom at EOF.
+  List functions: if values already read, return list at EOF; end_of_file returned next call.
+
+--- Writing ---
+write(FD,Term) / write(Term)  write term (strings double-quoted, atoms single-quoted)
+write_byte(FD,Bytes) / write_byte(Bytes)  write byte(s)
+write_char(FD,Chars) / write_char(Chars)  write char(s), not quoted
+write_char_code(FD,Codes) / write_char_code(Codes)  write char(s) from code(s)
+writeln(FD,Term) / writeln(Term)  write term + newline
+writef(FD,Format,Args...) / writef(Format,Args...)  formatted write (max 16 args)
+print(FD,Term) / print(Term)  like write but no quotes around strings/atoms
+println(FD,Term) / println(Term)  print + newline
+printf(FD,Format,Args...) / printf(Format,Args...)  like writef but uses print
+flush(FD) / flush()  flush buffer
+close(FD)  close file
+
+--- Format specifiers ---
+%% %c %d %e %E %f %g %G %i %n %o %s %u %w %x %X
+  %c: ASCII char only (use %w for UTF-8).  %n: newline.  %w: term.
+  Format: %[flags][width][.precision]specifier
+  Flags: for justification and padding.
+
+========================================
+PART 13: MATH MODULE (math, imported by default)
+========================================
+
+--- Constants ---
+e = 2.71828182845904523536
+pi = 3.14159265358979323846
+
+--- Sign and absolute value ---
+sign(X)=Val  1 if X>0, -1 if X<0, 0 if X=0
+abs(X)=Val  absolute value
+
+--- Rounding and truncation ---
+ceiling(X)=Val  smallest integer >= X
+floor(X)=Val  largest integer <= X
+round(X)=Val  nearest integer to X
+truncate(X)=Val  remove fractional part
+modf(X)=(IntVal,FractVal)  split into integer and fractional parts
+
+--- Exponents, roots, logarithms ---
+pow(X,Y)=Val  X^Y (same as X**Y)
+pow_mod(X,Y,Z)=Val  X^Y mod Z (X,Y,Z integers, Y>=0)
+exp(X)=Val  e^X
+sqrt(X)=Val  square root (throws if X<0)
+log(X)=Val  log_e(X)
+log10(X)=Val  log_10(X)
+log2(X)=Val  log_2(X)
+log(B,X)=Val  log_B(X)
+
+--- Degree/radian conversion ---
+to_radians(Degree)=Radian
+to_degrees(Radian)=Degree
+
+--- Trigonometric ---
+sin,cos,tan,sec,csc,cot,asin,acos,atan,atan2(X,Y),asec,acsc,acot  (all in radians)
+atan2(X,Y)=Val  arc tangent of Y/X, range [-pi,pi]
+asin(X) range [-pi/2,pi/2], acos(X) range [0,pi], acot(X) range [-pi/2,pi/2]
+asec(X) range [0,pi], acsc(X) range [-pi/2,pi/2]
+sec throws if cos=0, csc throws if sin=0, cot throws if tan=0
+
+--- Hyperbolic ---
+sinh,cosh,tanh,sech,csch,coth,asinh,acosh,atanh,asech,acsch,acoth
+acosh throws if X<1, atanh throws if |X|>=1, asech requires 0<X<=1
+acoth requires X<-1 or X>1, csch throws if X=0, coth throws if X=0
+
+--- Random numbers ---
+random()=Val  random integer
+random2()=Val  random integer (env-dependent seed)
+rand_max()=Val  maximum random integer
+random(Seed)=Val  random integer, changes seed
+random(Low,High)=Val  random integer in [Low,High]
+frand()=Val  random real in [0.0,1.0]
+frand(Low,High)=Val  random real in [Low,High]
+
+--- Other ---
+even(N)  true if N even
+gcd(A,B)=Val  greatest common divisor
+odd(N)  true if N odd
+prime(N)  true if N prime
+primes(N)=List  primes <= N
+
+========================================
+PART 14: SYS MODULE (sys, imported by default)
+========================================
+
+--- Compiling/loading ---
+compile(FileName)  compile FileName.pi + dependents (no load)
+compile_bp(FileName)  translate FileName.pi to FileName.pl (B-Prolog)
+load(FileName)  load FileName.qi (+ dependents); compile if .qi missing
+cl(FileName)  compile+load FileName.pi (+ dependents)
+cl  compile+load from console (end with ctrl-z/ctrl-d)
+cl_facts(Facts)  compile+load list of ground facts
+cl_facts(Facts,IndexInfo)  with indexing info [p(+,-,...),...]
+cl_facts_table(Facts)  same but tabled
+cl_facts_table(Facts,IndexInfo)  same but tabled
+
+--- Debugging ---
+trace  switch to trace mode
+notrace  switch to non-trace mode
+debug  switch to trace mode
+nodebug  switch to non-trace mode
+spy(Point)  set spy point on Functor/Arity (Arity optional)
+nospy  remove all spy points, switch to non-trace
+abort  terminate current query
+Debug commands (in trace mode): + - < <i a <cr> c h ? l n r s t t<i u u<i
+
+--- Statistics ---
+statistics  display memory usage
+statistics(Key,Value)  nondet: Key in runtime,program,heap,control,trail,table,gc,backtracks,gc_time
+  runtime: [elapsed_ms, since_last_call]. gc: count. backtracks: count. others: [in_use, available].
+statistics_all()=List  list of [Key,Value] pairs
+
+--- Time ---
+time(Goal)  execute Goal, report CPU seconds
+time2(Goal)  execute Goal, report CPU seconds and backtracks
+time_out(Goal,Limit,Result)  like once(Goal) with time limit (ms); Result=time_out or success
+
+--- System info ---
+help  display command usage
+loaded_modules()=List  currently loaded modules (default: [basic,sys,io,math])
+nolog  turn off logging
+picat_path()=Path  PICATPATH directories
+command(String)=Int  send command to OS, return status
+
+--- Garbage collection ---
+garbage_collect  start GC
+garbage_collect(Size)  GC + ensure Size words on stack+heap
+
+--- Quit ---
+exit, halt
+
+========================================
+PART 15: UTIL MODULE (util)
+========================================
+
+import util.
+
+--- Terms ---
+replace(Term,Old,New)=NewTerm  replace all occurrences of Old with New
+replace_at(Term,Index,New)=NewTerm  replace argument at Index with New
+find_first_of(Term,Pattern)=Index  first index where arg unifies with Pattern (-1 if none)
+find_last_of(Term,Pattern)=Index  last index where arg unifies with Pattern (-1 if none)
+
+--- Strings and lists ---
+chunks_of(List,K)=ListOfLists  split into chunks of length K (last may be shorter)
+drop(List,K)=List  suffix after dropping first K elements ([] if K>length)
+find(String,SubString,From,To)  nondet: find SubString in String
+find_ignore_case(String,SubString,From,To)  case-insensitive find
+join(Tokens)=String  = join(Tokens," ")
+join(Tokens,Separator)=String  concatenate tokens with separator
+lstrip(List)=List  remove leading whitespace (" \t\n\r")
+lstrip(List,Elms)=List  remove leading elements in Elms
+rstrip(List)=List  remove trailing whitespace
+rstrip(List,Elms)=List  remove trailing elements in Elms
+split(String)=Tokens  split on whitespace (" \t\n\r")
+split(String,Separators)=Tokens  split on chars in Separators
+strip(List)=List  remove leading and trailing whitespace
+strip(List,Elms)=List  remove leading and trailing elements in Elms
+take(List,K)=List  prefix of length K (or List if K>length)
+
+--- Matrices ---
+matrix_multi(A,B)  matrix product (A,B must be array matrices)
+transpose(A)=B  transpose (array or list matrix; returns same type)
+rows(A)=List  rows as list
+columns(A)=List  columns as list
+diagonal1(A)=List  primary diagonal
+diagonal2(A)=List  secondary diagonal
+array_matrix_to_list_matrix(A)=List  array matrix to list matrix
+array_matrix_to_list(A)=List  array matrix to flat list (row by row)
+
+--- Lists and sets ---
+permutation(List,P)  nondet: generate permutation P of List
+permutations(List)=Ps  all permutations
+nextto(E1,E2,List)  nondet: E2 follows E1 in List
+
+========================================
+PART 16: ORDSET MODULE (ordset)
+========================================
+
+import ordset.
+Ordered set = sorted list without duplicates.
+delete(OSet,Elm)=OSet1  copy without Elm
+disjoint(OSet1,OSet2)  true if no common elements
+insert(OSet,Elm)=OSet1  copy with Elm inserted (maintaining order)
+intersection(OSet1,OSet2)=OSet3  intersection
+new_ordset(List)=OSet  create from List
+ordset(Term)  true if Term is ordered set
+subset(OSet1,OSet2)  true if OSet1 subset of OSet2
+subtract(OSet1,OSet2)=OSet3  elements in OSet1 not in OSet2
+union(OSet1,OSet2)=OSet3  union
+
+========================================
+PART 17: DATETIME MODULE (datetime)
+========================================
+
+import datetime.
+current_datetime()=DateTime  structure: date_time(Year,Month,Day,Hour,Minute,Second)
+  Year: years since 1900; Month: 0-11; Day: 1-31; Hour: 0-23; Minute: 0-59; Second: 0-60
+current_date()=Date  structure: date(Year,Month,Day)
+current_day()=WDay  days since Sunday (0-6)
+current_time()=Time  structure: time(Hour,Minute,Second)
+
+========================================
+PART 18: OS MODULE (os)
+========================================
+
+import os.
+separator()=Val  file separator char
+listdir(Path)=List  list files/dirs in directory Path
+cwd()=Path  current working directory
+pwd()=Path  same as cwd
+cd(Path)  change directory
+chdir(Path)  same as cd
+mkdir(Path)  create directory
+rename(Old,New)  rename file/directory
+cp(FromPath,ToPath)  copy file
+rm(Path)  delete file
+rmdir(Path)  delete directory (must be empty)
+readable(Path)  can read?
+writable(Path)  can write?
+executable(Path)  can execute?
+size(Path)=Int  file size in bytes (os.size for maps is different module)
+file_base_name(Path)=String  base name (e.g., "a/b/c.txt" -> "c.txt")
+file_directory_name(Path)=String  directory (e.g., "a/b/c.txt" -> "a/b/")
+exists(Path)  exists (file or directory)?
+file(Path)  regular file?
+file_exists(Path)  exists and is regular file?
+directory(Path)  directory?
+env_exists(Name)  Name is environment variable?
+getenv(Name)=String  value of env var (throws if not exist)
+
+========================================
+PART 19: NN MODULE (nn) - Neural Networks (FANN)
+========================================
+
+import nn.
+Feedforward neural networks. Layers, neurons, weights, activation functions.
+
+--- Create/print/destroy ---
+new_nn(Layers)=NN  fully-connected network (Layers=collection of neuron counts)
+new_standard_nn(Layers)=NN  same as new_nn
+new_sparse_nn(Layers,Rate)=NN  sparse network with connection rate
+new_sparse_nn(Layers)=NN  = new_sparse_nn(Layers,0.5)
+nn_print(NN)  print attributes
+nn_destroy(NN)  destroy network
+nn_destroy_all  destroy all networks + internal data
+
+--- Activation functions ---
+nn_set_activation_function_layer(NN,Func,Layer)  set for layer (2<=Layer<=n)
+  Func: linear,threshold,sym_threshold,sigmoid,step_sigmoid,sym_sigmoid,
+        elliot,sym_elliot,gaussian,sym_gaussian,linear_piece,sym_linear_piece,
+        sin,sym_sin,cos,sym_cos
+  Default: sym_sigmoid
+nn_set_activation_function_hidden(NN,Func)  set for all hidden layers
+nn_set_activation_function_output(NN,Func)  set for output layer
+nn_set_activation_steepness_layer(NN,Steepness,Layer)  steepness for layer (-1..1, default 0.5)
+nn_set_activation_steepness_hidden(NN,Steepness)
+nn_set_activation_steepness_output(NN,Steepness)
+
+--- Training data ---
+Format: first line "num_train num_input num_output", then input/output pairs.
+nn_train_data_size(Data)=Size  (Data = filename or collection)
+nn_train_data_get(Data,I)=Pair  Ith pair (constant time for file/array)
+nn_train_data_load(File)=Data  load dataset into array
+nn_train_data_save(Data,File)  save dataset to file
+
+--- Training ---
+nn_train(NN,Data,Opts)  train with options
+nn_train(NN,Data)  = nn_train(NN,Data,[])
+Options: maxep(X), report(X), derror(X), train_func(X) [batch,inc,qprop,rprop,sprop],
+  lrate(X), momentum(X), error_func(X) [linear,tanh], stop_func(X) [bit,mse],
+  bfl(X), qp_decay(X), qp_mu(X), rp_increase(X), rp_decrease(X), rp_deltamin(X),
+  rp_deltamax(X), rp_deltazero(X), sp_weight(X), sp_thresh(X), sp_shift(X), sp_temp(X),
+  scale(InMin,InMax,OutMin,OutMax), inscale(InMin,InMax), outscale(OutMin,OutMax)
+
+--- Save/load/run ---
+nn_save(NN,File)  save network to file
+nn_load(File)=NN  load network from file
+nn_run(NN,Input,Opts)=Output  predict output
+nn_run(NN,Input)=Output  = nn_run(NN,Input,[])
+Options: scaleIn(X) [-1=descale,1=scale,0=nothing], scaleOut(X), resetMSE
+
+========================================
+PART 20: FORMAT SPECIFIERS
+========================================
+writef/printf/to_fstring format: %[flags][width][.precision]specifier
+  %%  percent sign
+  %c  character (ASCII only; use %w for UTF-8)
+  %d  signed decimal integer
+  %e  scientific notation (lowercase e)
+  %E  scientific notation (uppercase E)
+  %f  decimal real number
+  %g  shorter of %e and %f
+  %G  shorter of %E and %f
+  %i  signed decimal integer
+  %n  platform-independent newline
+  %o  unsigned octal
+  %s  string
+  %u  unsigned decimal
+  %w  term
+  %x  unsigned lowercase hex
+  %X  unsigned uppercase hex
+
+========================================
+PART 21: C INTERFACE
+========================================
+Include "picat.h" from Picat/Emulator. Re-compile Picat C source with new functions.
+
+--- Term representation ---
+Word (32 or 64 bit) with tag. References, atoms, structures, lists, etc.
+List [H|T]: 2 words (car, cdr). Structure f(t1,...,tn): n+1 words (functor + args).
+
+--- Fetching arguments ---
+TERM picat_get_call_arg(int i, int arity)  ith argument of current call
+
+--- Testing terms (return PICAT_TRUE/PICAT_FALSE) ---
+picat_is_var, picat_is_attr_var, picat_is_dvar, picat_is_bool_dvar,
+picat_is_integer, picat_is_float, picat_is_atom, picat_is_nil, picat_is_list,
+picat_is_string, picat_is_structure, picat_is_array, picat_is_compound,
+picat_is_identical(t1,t2), picat_is_unifiable(t1,t2)
+
+--- Converting Picat to C (check global "exception" var after) ---
+long picat_get_integer(TERM t)
+double picat_get_float(TERM t)
+char* picat_get_atom_name(TERM t)
+char* picat_get_struct_name(TERM t)
+int picat_get_struct_arity(TERM t)
+
+--- Manipulating terms ---
+int picat_unify(TERM t1, TERM t2)  PICAT_TRUE if succeeds
+TERM picat_get_arg(int i, TERM t)  ith argument
+TERM picat_get_car(TERM t)  car of list
+TERM picat_get_cdr(TERM t)  cdr of list
+void picat_write_term(TERM t)  write to stdout
+
+--- Building terms ---
+TERM picat_build_var()  free variable
+TERM picat_build_integer(long i)
+TERM picat_build_float(double f)
+TERM picat_build_atom(char* name)
+TERM picat_build_nil()  empty list
+TERM picat_build_list()  list with free car and cdr
+TERM picat_build_structure(char* name, int arity)  structure with free args
+TERM picat_build_array(int n)  array with n free args
+
+--- Registering C predicates ---
+insert_cpred(char* name, int arity, int (*func)())
+  Register in Cboot() in cpreds.c. Call with bp. qualifier: bp.p(a,X).
+
+--- Calling Picat from C ---
+initialize_bprolog(int argc, char* argv[])  must be called first
+int picat_call_string(char* goal)  PICAT_TRUE/PICAT_FALSE/PICAT_ERROR
+int picat_call_term(TERM goal)  like above but can return bindings
+picat_mount_query_string(char* goal) / picat_mount_query_term(TERM goal)
+int picat_next_solution()  PICAT_TRUE/PICAT_FALSE
+
+========================================
+PART 22: TOKENS (LEXICAL RULES)
+========================================
+
+Atom: lowercase_letter {alphanumeric} | 'quoted_string'
+  Escape sequences: \" \' \\ \` \a \b \f \n \r \t \v \uh...h (unicode)
+Variable: _ | _ {alphanumeric} | capital_letter {alphanumeric}
+Integer: decimal [0-9], hex 0x[0-9a-fA-F], octal 0o[0-7], binary 0b[0-1]
+  Underscore separators allowed in numerals.
+Real: decimal.fraction[exponent] or decimal[exponent]
+  Exponent: e/E [sign] decimal
+String: " {string_char} "
+Comment: /* ... */ or % to end of line
+Operators: => ?=> :- --> = != > >= < <= =< == !== := .. . @ + - * ** / // /> /< 
+  ^ /\ \/ ~ << >> #= #!= #> #>= #< #<= #=< #=> #<=> #/\ #^ #\/ #~ @> @>= @< @<= @=< 
+  :: in notin , ; && || =.. =:= =\= ++
+Separators: ( ) { } [ ]
+
+========================================
+PART 23: GRAMMAR SUMMARY
+========================================
+
+program -> [module_declaration] {import_declaration} program_body
+module_declaration -> "module" atom eor
+import_declaration -> "import" import_item {"," import_item} eor
+program_body -> {predicate_def | function_def | actor_def}
+predicate_directive -> "private" | "table" ["(" table_mode {"," table_mode} ")"] |
+  "index" index_decl {"," index_decl}
+index_declaration -> "(" index_mode {"," index_mode} ")"
+index_mode -> "+" | "-"
+table_mode -> "+" | "-" | "min" | "max" | "nt" | "mmax" | "mmin"
+predicate_rule -> head ["," condition] ("=>" | "?=>") body eor
+  head (":-" | "-->") body eor  (Horn clause / DCG)
+function_rule -> head "=" expression ["," condition] "=>" body eor
+function_fact -> head "=" argument eor
+action_rule -> head ["," condition] "," "{" event_pattern "}" "=>" body eor
+head -> atom ["(" [term {"," term}] ")"]
+condition -> goal
+body -> goal
+goal -> disjunctive_goal
+disjunctive_goal -> disjunctive_goal ";" conjunctive_goal | conjunctive_goal
+conjunctive_goal -> conjunctive_goal "," negative_goal | negative_goal
+negative_goal -> "not" negative_goal | equiv_constr
+equiv_constr -> equiv_constr "#<=>" impl_constr | impl_constr
+impl_constr -> impl_constr "#=>" or_constr | or_constr
+or_constr -> or_constr "#\/" xor_constr | xor_constr
+xor_constr -> xor_constr "#^" and_constr | and_constr
+and_constr -> and_constr "#/\" not_constr | not_constr
+not_constr -> "#~" not_constr | enclosed_goal
+enclosed_goal -> if/foreach/while/do-while | expression {bin_rel_op expression}
+bin_rel_op -> = != := == !== > >= < =< <= :: in notin =..
+  #= #!= #> #>= #< #=< #<= @> @>= @< @<= @=< @>=
+expression -> concat_expression
+concat_expression -> range_expression ["++" concat_expression]
+range_expression -> or_expression [".." or_expression [".." or_expression]]
+or_expression -> xor_expression | or_expression "\/" xor_expression
+... (precedence continues through arithmetic and unary to primary_expression)
+primary_expression -> "(" goal ")" | subscript | as-pattern | variable | integer |
+  float | atom_or_call | list_expr | array_expr | function_call | term_constructor |
+  primary_expression "." atom_or_call
+term_constructor -> "$" goal ["$"]
+  (no loops, if statements, or assignments in term constructors;
+   subscript/range/dot/list-comp/array-comp treated as functions in terms)
+
+========================================
+PART 24: KEY SYNTACTIC DETAILS
+========================================
+
+1. Structures need $ prefix: $f(a,b). Without $, f(a,b) is a function call.
+2. Arrays: {a,b,c}. Lists: [a,b,c]. Strings: "abc" = [a,b,c].
+3. Function call with 0 args needs parens: f(). Exception: module-qualified (math.pi).
+4. Cond in rules cannot succeed more than once (compiler wraps in "once" if needed).
+5. Backtrackable rule (?=>): backtracks to try next rule if body fails.
+   Non-backtrackable rule (=>): commitment, no backtrack.
+6. Cut (!): removes choice points of goals to its left.
+7. Assignment := creates new variable at compile time. X:=X+1 becomes X1=X+1.
+8. Loop/comprehension variables not used before loop = local to each iteration.
+9. findall/find_all forms name scope (like loop): local vars not visible after.
+10. Higher-order calls cannot contain assignments or loops.
+11. In constraint expressions, expressions are treated as terms (no $ needed),
+    EXCEPT index notations, array comprehensions, and list comprehensions which
+    are interpreted as function calls. Dot notation should NOT be used in constraints.
+12. Horn clauses: Head :- Body. DCG: Head --> Body. Both converted to pattern-matching.
+13. index(+,-) declaration for Horn clause predicates: + = indexed, - = not indexed.
+14. Private definitions: "private" keyword hides from other modules.
+15. OOP: A.f(args) = f(A,args) unless A is atom (then module qualifier).
+    A.f = get(A,f).  X.f().g() = g(f(X)).
+16. Numerical equality: 1 =:= 1.0 succeeds. Structural: 1 == 1.0 fails.
+17. occurs-check disabled in unification (for efficiency). X = f(X) creates cycle.
+18. Global maps: max 97, changes NOT undone on backtrack.
+    Heap maps: unlimited, changes undone on backtrack.
+    Table maps: max 97, hash-consed, changes NOT undone.
+19. solve/1 and solve/2 are nondeterministic (can backtrack for multiple solutions).
+20. cp allows incremental labeling; sat/mip do not.
+21. In mode-directed tabling: + input, - output, max/min (first best), mmax/mmin (all best),
+    nt (not tabled, last arg only). Input assumed ground, output assumed variable.
+22. Action rule conditions: conjunctions of inline tests only (type checks, comparisons).
+    No variable in actor can change during condition execution.
+23. Events queued, handled at non-inline call boundaries. Inline calls never interrupted.
+24. No primitive to kill/detach actors. Actor vanishes when normal rule applied.
+25. freeze(X,Goal): delayed evaluation until X bound.
+26. different_terms(T1,T2): disequality constraint, suspended until instantiated.
+27. List/array comprehensions: [T : E in D, Cond, ...] - both iterators AND conditions allowed.
+28. foreach: break(Cond) terminates iterator when Cond true (body NOT executed).
+29. while/do-while: condition tested with Cond (while: before body; do-while: after).
+30. As-pattern V@Pattern: V bound to matched term, avoids reconstruction.
+31. new_map/new_set: arg can be integer (capacity) or list (initial pairs/keys).
+32. sort/1 sorts ascending. sort(List,KeyIndex) sorts by key index.
+33. In solve options, $ prefix indicates term (not function call): $max(Var), $min(Var), etc.
+34. String is a list of single-character atoms. All list operations work on strings.
+35. Array length stored; list length recomputed each call. Array access is O(1).
+36. cond(Cond,Exp1,Exp2): conditional expression. = Cond*Exp1+(1-Cond)*Exp2.
+37. Functions never fail and never return more than one answer.
+38. Predicates can have zero, one, or multiple answers (via backtracking).
+39. once(Call): at most one solution. not(Call): negation, never instantiates vars.
+40. repeat: always succeeds (repeat ?=> true. repeat => repeat.)
+
+--- Missing items added from appendix ---
+
+fold(F,Acc,List)=Res  fold: if List=[H|T], F applied to (H,Acc), recurse. F(Acc,[])=Acc.
+  reduce(F,List)=Res  fold first two elements, repeat until one left.
+  reduce(F,List,InitVal)=Res  = reduce(F,[InitVal|List])
+
+sorted(ListOrArray)  true if sorted in ascending order
+sorted_down(ListOrArray)  true if sorted in descending order
+lowercase(Char)  (in appendix, not documented in main text)
+uppercase(Char)  (in appendix, not documented in main text)
+
+new_fd_var()=FDVar  same as new_dvar()
+
+read_atom(FD)=Atom / read_atom()  read atom from file/stdin (in appendix)
+read_number(FD)=Number / read_number()  read number from file/stdin (in appendix)
+nl(FD) / nl()  write newline to file/stdout (in appendix)
+
+dir  (os module, in appendix; lists directory?)
+ls  (os module, in appendix; lists directory?)
+
+--- Constraint module notes ---
+disjunctive_tasks(Tasks)  (cp only) non-overlapping tasks
+neqs(NeqList)  (cp only) conjunction of inequality constraints, extracts all_distinct
+
+--- Additional solve_suspended details ---
+solve_suspended(Opts)  (cp only) label remaining vars in suspended constraints
+  After solve(Vars), some constraints may remain suspended if not all
+  decision variables were in Vars. This labels all remaining vars.
+solve_suspended  = solve_suspended([])
+
+
+------------------------------
+Constraint Programming Advice:
+------------------------------
+
+Prefer sat to cp, only try cp if sat seems too slow.
+
+Prefer global constraints to local constraints.
+
+Constraints based on sum in equality and in inequality constraints are powerful, use
+this technique (that is very much leveraged in answer set programming).
+
+Prefer 2D or multi-dimensional arrays to list of arrays, if all arrays in
+the list have the same length.
+
