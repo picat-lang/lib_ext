@@ -94,6 +94,10 @@ color(netherlands,green)
 
 # Version history
 
+v0.3.5:
+
+- Support for adding ASP facts with embedded picat, e.g. for adding info transformed from input files.
+
 v0.3.4:
 
 - Acceleration of the grounding at the expense of the readibility of the
