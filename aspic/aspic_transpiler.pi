@@ -329,7 +329,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  convert ASP from given file F to picat text on stderr
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-main2(FileList,Extra),A=[Line:F in FileList,AX=read_file_lines(F),Line in AX],d(lines=A.len),asparse(A,R,T,Mini),println(stdout,notparsed=R)
+main2(FileList,Extra)=>main2(FileList,[],Extra).
+main2(FileList,ID,Extra),A=[Line:F in FileList,AX=read_file_lines(F),Line in AX],d(lines=A.len),asparse(A,R,T,Mini),println(stdout,notparsed=R)
 =>
 d(extra=Extra),
 if(R!=[]) then
@@ -338,7 +339,8 @@ d("ASP syntax error!")
 end
 ,Constr=sat
 ,if Extra==cp then Constr:=cp,end
-,if Extra==allcp then Constr:=cp,end,
+,if Extra==allcp then Constr:=cp,end
+,if Extra==subcp then Constr:=cp,end,
 _=command("sed s/ASPIC_CONSTRAINTS_LIB/"++Constr.to_string()++"/g aspic_runtime_template.pi>aspic_runtime.pi")
 ,println(stderr,"import "++Constr.to_string()++".\nimport aspic_runtime"++cond(Extra==debug,"_debug","")++".")
 ,println(stderr,"var(X,_)=X.\nrange(_,_)=0.")
@@ -356,7 +358,9 @@ print(stderr,P.to_string++"(")
 end
 end
 end
-,println(stderr,"main=>main([""sat""]).\nmain([ASPIC_SEARCH])=>ASPIC_SEARCH:=ASPIC_SEARCH.to_atom(),")
+,FN="main"
+,if(Extra==subsat;Extra==subcp) FN:="aspic_"++ID++"(ASPIC_OPT)" end
+,println(stderr,FN++"=>ASPIC_SEARCH:=sat,")
 ,println(stderr,"aspic_startlearning(),")
 ,translate_rules(T,1) %anything except constraints
 ,println(stderr,"aspic_stoplearning(),")
@@ -383,6 +387,9 @@ main([H|X]),H="sat" => main2(X,sat).
 main([H|X]),H="all" => main2(X,allsat).
 main([H|X]),H="sat/all" => main2(X,allsat).
 main([H|X]),H="cp/all" => main2(X,allcp).
+main([H|Y]),H="sub" => main([H|Y],"sat/sub").
+main([H|Y]),H="sat/sub",Y=[ID|X] => main2(X,ID,subsat).
+main([H|Y]),H="cp/sub",Y=[ID|X] => main2(X,ID,subcp).
 main([H|X]),H="rundebug" => main2(X,debug).
 main([H|X]),H="syntaxdebug" => main1(X).
 
