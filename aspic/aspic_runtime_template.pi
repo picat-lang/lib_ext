@@ -187,3 +187,33 @@ d("UNSAT")
 
 aspic_solve(sat,Mini)=>aspic_solve_gen(Mini).
 
+%used when embedding ASP islands in Picat
+aspic_solve_sub(Mini)=>
+M=get_heap_map(aspic_atoms)
+,MV=M.values()
+,d("starting to solve")
+,(aspic_showsatstats(MV),fail
+;(
+%d(presolution=[K.show=V:K in M.keys.sort,V=M.get(K)]),
+%d(universe=universe().sort),
+d(universe_size=universe().len)
+%,d(cpvars=M.keys.sort.map(show))
+,d(cpvars=MV.len)
+,d(cprules=get_heap_map(aspic_learning).get(clauses,0))
+,if Mini==0 then solve([rand],MV)
+%,d(solution=[K.show:K in M.keys.sort,V=M.get(K),V==1,not aspic_isfdvariable(K)]
+%++[X=X.showfd:X in [F:K in M.keys,aspic_isfdvariable(K),K=..L,L2=L.removelast,F=..L2].remove_dups.sort])
+else solve([$min(Mini),rand],[Mini|MV])
+%,d(solution=[$optimization(Mini)|[K.show:K in M.keys.sort,V=M.get(K),V==1,not aspic_isfdvariable(K)]]
+%++[X=X.showfd:X in [F:K in M.keys,aspic_isfdvariable(K),K=..L,L2=L.removelast,F=..L2].remove_dups.sort])
+end
+% ,d([K.show:K in M.keys.sort,V=M.get(K),V=0])
+%,d(s=S)
+% ,d([K.show:K in M.keys()])
+)
+;
+d("UNSAT"),!,fail
+)
+%,current_datetime().d
+.
+
