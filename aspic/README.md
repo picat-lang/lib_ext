@@ -101,6 +101,8 @@ color(netherlands,green)
 
 - sed needs to be in the path
 
+- cpp (the C preprocessor) needs to be in the path
+
 - so far only tested on Linux 
 
 # Version history
