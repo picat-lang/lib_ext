@@ -342,7 +342,9 @@ end
 ,if Extra==allcp then Constr:=cp,end
 ,if Extra==subcp then Constr:=cp,end,
 _=command("sed s/ASPIC_CONSTRAINTS_LIB/"++Constr.to_string()++"/g aspic_runtime_template.pi>aspic_runtime.pi")
-,println(stderr,"import "++Constr.to_string()++".\nimport aspic_runtime"++cond(Extra==debug,"_debug","")++".")
+,if ((Extra!=subsat, Extra!=subcp)) then
+println(stderr,"import "++Constr.to_string()++".\nimport aspic_runtime"++cond(Extra==debug,"_debug","")++".")
+end
 ,println(stderr,"var(X,_)=X.\nrange(_,_)=0.")
 ,H=get_heap_map(asp_atoms)
 ,Native=get_heap_map(native_atoms)

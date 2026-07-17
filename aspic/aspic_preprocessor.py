@@ -44,6 +44,9 @@ def _find_last_import_line(lines: list[str]) -> int:
             last = i
     return last
 
+def call_name(counter):
+    ax=next(counter)
+    return f'aspic_{ax}(ASPIC_OPT_{ax})'    
 
 def preprocess(source_code: str) -> str:
     """
@@ -71,13 +74,15 @@ def preprocess(source_code: str) -> str:
 
         try:
             result = subprocess.run(
-                ['./aspic_sub', str(idx), tmp_path],
-                capture_output=True,
+                ["picat","-log", "aspic_transpiler.pi", "sat/sub", str(idx), tmp_path],
+                #capture_output=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 text=True,
                 check=True,
             )
             # Strip trailing whitespace but preserve the code itself
-            generated_snippets.append(result.stdout.rstrip('\n\r'))
+            generated_snippets.append(result.stderr.rstrip('\n\r'))
         except FileNotFoundError:
             print(
                 "Error: external script 'aspic_sub' not found in PATH.",
@@ -97,7 +102,7 @@ def preprocess(source_code: str) -> str:
     # 3. Replace every matched block with the corresponding predicate call
     counter = iter(range(1, len(matches) + 1))
     source_with_calls = _ASP_BLOCK_RE.sub(
-        lambda _m: f'aspic_{next(counter)}()', source_code
+        lambda _m: call_name(counter), source_code
     )
 
     # 4. Insert generated code after the last import line
