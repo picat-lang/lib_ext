@@ -48,7 +48,7 @@ def call_name(counter):
     ax=next(counter)
     return f'aspic_{ax}(ASPIC_OPT_{ax})'    
 
-def preprocess(source_code: str) -> str:
+def preprocess(solvertype:str,source_code: str) -> str:
     """
     Convert ASP blocks to predicate calls and inject generated definitions.
 
@@ -73,8 +73,9 @@ def preprocess(source_code: str) -> str:
             tmp_path = tmp.name
 
         try:
+#            print(["picat","-log", "aspic_transpiler.pi", solvertype+"/sub", str(idx), tmp_path])
             result = subprocess.run(
-                ["picat","-log", "aspic_transpiler.pi", "sat/sub", str(idx), tmp_path],
+                ["picat","-log", "aspic_transpiler.pi", solvertype+"/sub", str(idx), tmp_path],
                 #capture_output=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
@@ -111,7 +112,7 @@ def preprocess(source_code: str) -> str:
 
     # Build the block to insert (all snippets joined with newlines)
     insertion = '\n'.join(generated_snippets)
-
+    insertion="import "+solvertype+".\n"+insertion
     # Insert – if there is existing text we need to make sure we don't lose it
     new_lines = lines[:insert_pos] + [insertion] + lines[insert_pos:]
 
@@ -123,14 +124,15 @@ def preprocess(source_code: str) -> str:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print(
-            "Usage: python aspic_preprocessor.py <input_file> [output_file]",
+            "Usage: python aspic_preprocessor.py <solvertype> <input_file> [output_file]\nwhere solvertype is asp or cp",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    input_path = sys.argv[1]
+    solvertype = sys.argv[1]
+    input_path = sys.argv[2]
 
     try:
         with open(input_path, 'r', encoding='utf-8') as fh:
@@ -142,10 +144,10 @@ def main() -> None:
         print(f"Error reading '{input_path}': {exc}", file=sys.stderr)
         sys.exit(1)
 
-    processed = preprocess(source_code)
+    processed = preprocess(solvertype,source_code)
 
-    if len(sys.argv) >= 3:
-        output_path = sys.argv[2]
+    if len(sys.argv) >= 4:
+        output_path = sys.argv[3]
         try:
             with open(output_path, 'w', encoding='utf-8') as fh:
                 fh.write(processed)

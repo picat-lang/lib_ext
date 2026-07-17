@@ -1,0 +1,8 @@
+import sys.
+import util.
+main([H|T]),H.reverse()="pl." ++ _ =>main(["sat",H|T]).
+main(ARGS)=>
+println("picasp v0.1")
+,_=command("./picasp_preprocessor.py "++ARGS.join()++" >t.pi")
+,_=command("picat -log -s 1234567890 t.pi 2>&1")
+.
