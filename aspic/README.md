@@ -4,7 +4,18 @@ This is an Answer Set Programms to Picat transpiler (source to source translator
 
 The transpiler is described in a paper accepted at ICLP 2026.
 
-# How to use
+In addition a source to source compiler that takes Picat code with (now a single) ASP block and converts it into a picat source that uses the constraints defined in ASP in addition to the ones defined in Picat.  
+
+# How to use the Picat with embedded ASP transpiler (PICASP)
+
+picat picasp.pi examples/asp_embedded_in_picat.pi #using sat(default)
+
+or
+
+picat cp picasp.pi examples/asp_embedded_in_picat.pi #using cp
+
+
+# How to use the ASP to Picat transpiler (ASPIC)
 
 ## a) Using a convenience script
 
