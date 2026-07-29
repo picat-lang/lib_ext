@@ -2,9 +2,20 @@
 
 This is an Answer Set Programms to Picat transpiler (source to source translator).
 
-The transpiler is described in a paper accepted at ICLP 2026.
+The transpiler is described in [a paper accepted at ICLP 2026](https://cgi.cse.unsw.edu.au/~eptcs/paper.cgi?ICLP2026.21).
 
-# How to use
+In addition a source to source compiler that takes Picat code with (now a single) ASP block and converts it into a picat source that uses the constraints defined in ASP in addition to the ones defined in Picat.  
+
+# How to use the Picat with embedded ASP transpiler (PICASP)
+
+picat picasp.pi examples/asp_embedded_in_picat.pi #using sat(default)
+
+or
+
+picat cp picasp.pi examples/asp_embedded_in_picat.pi #using cp
+
+
+# How to use the ASP to Picat transpiler (ASPIC)
 
 ## a) Using a convenience script
 
@@ -90,9 +101,15 @@ color(netherlands,green)
 
 - sed needs to be in the path
 
+- cpp (the C preprocessor) needs to be in the path
+
 - so far only tested on Linux 
 
 # Version history
+
+v0.3.5:
+
+- Support for adding ASP facts with embedded picat, e.g. for adding info transformed from input files.
 
 v0.3.4:
 
