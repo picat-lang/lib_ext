@@ -1,3 +1,5 @@
+# Important note: the development continues in the [Picat experimental branch](https://github.com/picat-lang/Picat/tree/experimental) Please use that updated version instead, as it offers wider ASP support, more readable Picat code using user defined functions in constraints, and more robust performance by tabling the ASP facts in Picat functions.
+
 # Description
 
 This is an Answer Set Programms to Picat transpiler (source to source translator).
