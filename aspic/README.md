@@ -1,6 +1,6 @@
 # Important note: the code moved.
 
-The development continues in the [Picat experimental branch](https://github.com/picat-lang/Picat/tree/experimental) Please use that updated version instead, as it offers wider ASP support, more readable Picat code using user defined functions in constraints, and more robust performance by tabling the ASP facts in Picat functions.
+The development continues in the [Picat experimental branch](https://github.com/picat-lang/Picat/tree/experimental) Please use that updated version instead, as it offers wider ASP support, more readable Picat code using user defined functions in constraints, and more robust performance by converting the ASP facts to Picat functions.
 
 # Description
 
